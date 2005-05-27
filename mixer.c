@@ -23,6 +23,7 @@ void channel_remove_voice(channel_t *channel, voice_t *voice)
 void voice_stop(voice_t *voice)
 {
 	voice->data = NULL;
+	voice->inst_bg = NULL;
 	channel_remove_voice(voice->host, voice);
 }
 

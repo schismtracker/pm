@@ -51,7 +51,12 @@ void channel_past_note_nna(song_t *song, channel_t *channel, int nna)
 				voice_stop(channel->voices[n]);
 			}
 		} else if (nna == NNA_FADE) {
-			TODO("PAST NOTE FADE");
+			for (n = 0; n < channel->num_voices; n++) {
+				if (channel->voices[n]->inst_bg) {
+					channel->voices[n]->fadeout =
+						channel->voices[n]->inst_bg->fadeout;
+				}
+			}
 		} else if (nna == NNA_OFF) {
 			TODO("PAST NOTE OFF");
 		}
@@ -117,8 +122,8 @@ void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 				channel->fg_voice = v;
 			}
 		}
+		v->inst_bg = i;
 		channel->fg_voice = 0;
-		channel_link_voice(channel, v);
 	}
 }
 
