@@ -270,6 +270,7 @@ typedef struct voice {
 	long inc; /* how much to add to 'cur' per sample (derived from frequency) */
 	int lvol, rvol; /* final stereo volume */
 	channel_t *host; /* the channel that "owns" this voice (used when stopping the note) */
+	instrument_t *inst_bg; /* when backgrounded, inst_bg contains original instrument reference */
 	int flags; /* SAMP_ and VOICE_ values */
 	/* this stuff isn't used directly by the mixer */
 	int volume, panning, frequency;
