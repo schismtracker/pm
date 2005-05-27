@@ -336,6 +336,32 @@ void process_volume_tick0(UNUSED song_t *song, channel_t *channel, note_t *note)
 	case (128)...(192):
 		channel_set_panning(channel, note->volume - 128);
 		break;
+
+	case (65)...(74):
+		/* fine volume slide up;
+				65=d0f
+				66=d1f
+				67=d2f
+				68=d3f
+				73=d8f
+				74=d9f
+		same up through 104
+				 */
+	case (75)...(84):
+		/* fine volume slide down df? */
+	case (85)...(94):
+		/* volume slide up d?0 */
+	case (95)...(104):
+		/* volume slide down d0? */
+	case (105)...(114):
+		/* pitch slide down e?? value*4 */
+	case (115)...(124):
+		/* pitch slide up f?? */
+	case (193)...(202):
+		/* portamento to GX_SLIDE_TABLE */
+	case (203)...(212):
+		/* vibrato  */
+
 	default:
 		TODO("volume column effect %d", note->volume);
 	}
