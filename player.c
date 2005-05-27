@@ -533,12 +533,15 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		}
 		break;
 	case 'T': /* set tempo / tempo slide */
+		if (param)
+			channel->last_tempo = param;
+		else
+			param = channel->last_tempo;
 		if (param > 0x1f) {
 			/* set tempo */
 			song->tempo = param;
 			song_set_tick_timer(song);
 		}
-		song->last_tempo = song->tempo;
 		break;
 	case 'X': /* set panning */
 		/* Panning values are 0..64 internally, so convert the value to the proper range */
@@ -555,6 +558,8 @@ void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note
 	/* This could be done a lot more cleanly by setting flags for each effect on the channel:
 	for D/K/L set the volume slide flag, for H/K set the vibrato flag, etc. */
 	
+	/* hm. probably shouldn't be using note->param on tickN, especially
+	for effects that remember their parameters */
 	int effect = note->effect, param = note->param, px, py;
 	
 	/* volume column */
@@ -598,18 +603,18 @@ void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note
 		}
 		break;
 	case 'T':
-		if (param < 0x20) {
-			if (param == 0x00 || param == 0x10) {
-				song->last_tempo += channel->tempo_slide;
-
-			} else if (param < 0x10) {
-				channel->tempo_slide = -param;
-			} else {
-				channel->tempo_slide = (param & 0x0F);
-			}
-			song->last_tempo += channel->tempo_slide;
-			song->last_tempo = CLAMP(song->last_tempo, 32, 255);
-			song->tempo = song->last_tempo;
+		SPLIT_PARAM(channel->last_tempo, px, py);
+		switch (px) {
+		case 0:
+			song->tempo -= py;
+			if (song->tempo < 32)
+				song->tempo = 32;
+			song_set_tick_timer(song);
+			break;
+		case 1:
+			if (song->tempo + py >= 255)
+				song->tempo = 255;
+			song->tempo += py;
 			song_set_tick_timer(song);
 		}
 		break;
