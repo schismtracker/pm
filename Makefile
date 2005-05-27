@@ -25,3 +25,11 @@ misc.o: misc.c include/pm.h Makefile
 mixer.o: mixer.c include/pm.h Makefile
 player.o: player.c include/pm.h Makefile
 tables.o: tables.c include/pm.h Makefile
+
+fmt/669.o: fmt/669.c include/pm.h Makefile
+fmt/imf.o: fmt/imf.c include/pm.h Makefile
+fmt/it.o: fmt/it.c include/pm.h Makefile
+fmt/mod.o: fmt/mod.c include/pm.h Makefile
+fmt/mtm.o: fmt/mtm.c include/pm.h Makefile
+fmt/s3m.o: fmt/s3m.c include/pm.h Makefile
+fmt/sfx.o: fmt/sfx.c include/pm.h Makefile
