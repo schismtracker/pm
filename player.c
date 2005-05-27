@@ -56,7 +56,7 @@ void channel_past_note_nna(song_t *song, channel_t *channel, int nna)
 			for (n = 0; n < channel->num_voices; n++) {
 				v = channel->voices[n];
 				if (v->inst_bg) {
-					v->fadeout = v->inst_bg->fadeout << 3;
+					v->fadeout = v->inst_bg->fadeout << 2;
 				}
 			}
 		} else if (nna == NNA_OFF) {
@@ -109,19 +109,16 @@ void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 
 		if (nna == NNA_CUT) {
 			voice_stop(channel->fg_voice);
-			channel->fg_voice = 0;
 		} else {
 			voice_t *v;
 
 			v = channel->fg_voice;
 			v->inst_bg = i;
 			if (nna == NNA_FADE || nna == NNA_OFF) {
-				v->fadeout = i->fadeout << 3;
+				v->fadeout = i->fadeout << 2;
 			}
-
-			channel->fg_voice = voice_find_free(song->voices,
-						MAX_VOICES);
 		}
+		channel->fg_voice = 0;
 	}
 }
 
