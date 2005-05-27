@@ -279,6 +279,7 @@ typedef struct voice {
 
 struct channel {
 	uint8_t nna_note; /* last note hit (for nna) */
+	uint8_t last_tempo; /* last Txx value */
 
 	uint8_t initial_channel_volume; /* 0..64 - the Mxx volume */
 	uint8_t initial_panning; /* 0..64 */
@@ -329,7 +330,6 @@ typedef struct song {
 	uint8_t initial_global_volume, master_volume;
 	uint8_t initial_speed, initial_tempo;
 	uint8_t pan_separation;
-	uint8_t last_tempo; /* last Txx value */
 
 	/* variables used to keep track of the song's current state */
 	uint8_t global_volume;

@@ -24,7 +24,6 @@ void song_reset_play_state(song_t *song)
 	int n;
 
 	song->tempo = song->initial_tempo;
-	song->last_tempo = song->tempo;
 	song->speed = song->initial_speed;
 	song->samples_left = 0; /* start of the first tick */
 	song_set_order(song, 0, 0); /* this sets up the process_* and tick variables */
@@ -34,6 +33,7 @@ void song_reset_play_state(song_t *song)
 		song->channels[n].channel_volume = song->channels[n].initial_channel_volume;
 		song->channels[n].panning = song->channels[n].initial_panning;
 		song->channels[n].nna_note = NOTE_CUT;
+		song->channels[n].last_tempo = song->tempo;
 	}
 	
 	for (n = 0; n < MAX_VOICES; n++)
@@ -534,9 +534,9 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		break;
 	case 'T': /* set tempo / tempo slide */
 		if (param)
-			song->last_tempo = param;
+			channel->last_tempo = param;
 		else
-			param = song->last_tempo;
+			param = channel->last_tempo;
 		if (param > 0x1f) {
 			/* set tempo */
 			song->tempo = param;
@@ -603,7 +603,7 @@ void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note
 		}
 		break;
 	case 'T':
-		SPLIT_PARAM(song->last_tempo, px, py);
+		SPLIT_PARAM(channel->last_tempo, px, py);
 		switch (px) {
 		case 0:
 			song->tempo -= py;
