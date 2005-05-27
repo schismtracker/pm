@@ -314,7 +314,6 @@ struct channel {
 	uint8_t tremor_set;
 	uint8_t tremor_tick;
 
-	uint8_t last_tempo; /* last Txx value */
 	uint8_t pitch_slide; /* last E/Fxx value */
 	uint8_t portamento; /* last Gxx value */
 	uint8_t channel_volume_slide; /* last Nxx value */
@@ -330,6 +329,7 @@ typedef struct song {
 	uint8_t initial_global_volume, master_volume;
 	uint8_t initial_speed, initial_tempo;
 	uint8_t pan_separation;
+	uint8_t last_tempo; /* last Txx value */
 
 	/* variables used to keep track of the song's current state */
 	uint8_t global_volume;

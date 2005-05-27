@@ -534,9 +534,9 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		break;
 	case 'T': /* set tempo / tempo slide */
 		if (param)
-			channel->last_tempo = param;
+			song->last_tempo = param;
 		else
-			param = channel->last_tempo;
+			param = song->last_tempo;
 		if (param > 0x1f) {
 			/* set tempo */
 			song->tempo = param;
@@ -560,7 +560,7 @@ void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note
 	
 	/* hm. probably shouldn't be using note->param on tickN, especially
 	for effects that remember their parameters */
-	int effect = note->effect, param = note->param, px, py;
+	int effect = note->effect, px, py;
 	
 	/* volume column */
 	
@@ -603,7 +603,7 @@ void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note
 		}
 		break;
 	case 'T':
-		SPLIT_PARAM(channel->last_tempo, px, py);
+		SPLIT_PARAM(song->last_tempo, px, py);
 		switch (px) {
 		case 0:
 			song->tempo -= py;
