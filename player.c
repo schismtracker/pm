@@ -24,6 +24,7 @@ void song_reset_play_state(song_t *song)
 	int n;
 
 	song->tempo = song->initial_tempo;
+	song->global_volume = song->initial_global_volume;
 	song->speed = song->initial_speed;
 	song->samples_left = 0; /* start of the first tick */
 	song_set_order(song, 0, 0); /* this sets up the process_* and tick variables */
@@ -44,6 +45,7 @@ void song_reset_play_state(song_t *song)
 
 void channel_past_note_nna(song_t *song, channel_t *channel, int nna)
 {
+	voice_t *v;
 	int n;
 	if (song->flags & SONG_INSTRUMENT_MODE) {
 		if (nna == NNA_CUT) {
@@ -52,9 +54,9 @@ void channel_past_note_nna(song_t *song, channel_t *channel, int nna)
 			}
 		} else if (nna == NNA_FADE) {
 			for (n = 0; n < channel->num_voices; n++) {
-				if (channel->voices[n]->inst_bg) {
-					channel->voices[n]->fadeout =
-						channel->voices[n]->inst_bg->fadeout;
+				v = channel->voices[n];
+				if (v->inst_bg) {
+					v->fadeout = v->inst_bg->fadeout << 3;
 				}
 			}
 		} else if (nna == NNA_OFF) {
@@ -65,7 +67,6 @@ void channel_past_note_nna(song_t *song, channel_t *channel, int nna)
 void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 {
 	instrument_t *i;
-	voice_t *v;
 	int nna;
 
 	if (!(song->flags & SONG_INSTRUMENT_MODE)) {
@@ -106,24 +107,21 @@ void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 			nna = i->nna;
 		}
 
-		if (nna == NNA_FADE || nna == NNA_OFF) {
-			channel->fg_voice->fadeout = i->fadeout;
-		}
-
 		if (nna == NNA_CUT) {
 			voice_stop(channel->fg_voice);
-		} else if (channel->num_voices < MAX_VOICES) {
-			v = channel->voices[ channel->num_voices ] = channel->fg_voice;
-			channel->num_voices++;
+			channel->fg_voice = 0;
 		} else {
-			v = voice_find_free(*channel->voices, channel->num_voices);
-			if (v) {
-				voice_stop(v);
-				channel->fg_voice = v;
+			voice_t *v;
+
+			v = channel->fg_voice;
+			v->inst_bg = i;
+			if (nna == NNA_FADE || nna == NNA_OFF) {
+				v->fadeout = i->fadeout << 3;
 			}
+
+			channel->fg_voice = voice_find_free(song->voices,
+						MAX_VOICES);
 		}
-		v->inst_bg = i;
-		channel->fg_voice = 0;
 	}
 }
 
@@ -543,6 +541,16 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 			song_set_tick_timer(song);
 		}
 		break;
+	case 'V': /* set global volume */
+		TODO("GLOBAL VOVLUME SLIDE %d", note->param);
+		if (note->param <= 0x80) {
+			song->global_volume = note->param;
+		}
+		break;
+
+	case 'W': /* global volume slide */
+		TODO("GLOBAL VOVLUME SLIDE ");
+		break;
 	case 'X': /* set panning */
 		/* Panning values are 0..64 internally, so convert the value to the proper range */
 		channel_set_panning(channel, param * 64 / 255);
@@ -662,8 +670,9 @@ void handle_fadeouts(song_t *song)
 	voice_t *voice;
 	
 	for (n = 0, voice = song->voices; n < MAX_VOICES; n++, voice++)
-		if (voice->data && voice->fadeout)
+		if (voice->data && voice->fadeout) {
 			voice_fade(voice);
+		}
 }
 
 int process_tick(song_t *song)
@@ -739,7 +748,7 @@ int process_tick(song_t *song)
 /* --------------------------------------------------------------------------------------------------------- */
 /* mixing and output */
 
-static void convert_16ss(char *buffer, const int32_t *from, int samples)
+static void convert_16ss(song_t *song, char *buffer, const int32_t *from, int samples)
 {
 	int16_t *to = (int16_t *) buffer;
 	int32_t s;
@@ -747,8 +756,18 @@ static void convert_16ss(char *buffer, const int32_t *from, int samples)
 	/* while (samples--) results in decl %edi; cmpl $-1, %edi; je; but when
 	explicitly comparing against zero, it just uses testl. go figure. */
 	while (samples-- > 0) {
-		s = *from++; *to++ = CLAMP(s, -32768, 32767);
-		s = *from++; *to++ = CLAMP(s, -32768, 32767);
+		if (0 && song->global_volume < 0x80) {
+			s = *from++;
+			s = ((long)s * song->global_volume) >> 0;
+			*to++ = CLAMP(s, -32768, 32767);
+
+			s = *from++;
+			s = ((long)s * song->global_volume) >> 0;
+			*to++ = CLAMP(s, -32768, 32767);
+		} else {
+			s = *from++; *to++ = CLAMP(s, -32768, 32767);
+			s = *from++; *to++ = CLAMP(s, -32768, 32767);
+		}
 	}
 }
 
@@ -791,7 +810,7 @@ int song_read(song_t *song, char *buffer, int buffer_size)
 			song->max_voices = song->num_voices;
 		
 		/* copy it to the output buffer */
-		convert_16ss(buffer, mixing_buffer, samples_to_mix);
+		convert_16ss(song, buffer, mixing_buffer, samples_to_mix);
 		
 		/* update the counters */
 		song->samples_left -= samples_to_mix;
