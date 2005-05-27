@@ -280,6 +280,7 @@ typedef struct voice {
 struct channel {
 	uint8_t nna_note; /* last note hit (for nna) */
 	uint8_t last_tempo; /* last Txx value */
+	int c5speed; /* cached from sample */
 
 	uint8_t initial_channel_volume; /* 0..64 - the Mxx volume */
 	uint8_t initial_panning; /* 0..64 */
@@ -295,6 +296,10 @@ struct channel {
 	uint8_t channel_volume; /* 0..64 - Mxx */
 	uint8_t volume; /* 0..64 - volume column and sample volume */
 	uint8_t panning; /* 0..64 */
+
+	int realnote;
+	int arp_low, arp_mid, arp_high;
+
 	int period; /* for handling effects */
 	int target_period; /* where the portamento to note is heading */
 	int offset; /* "real" sample offset (the 0xYXX00 derived from Oxx and SAy) */

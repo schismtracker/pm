@@ -246,9 +246,11 @@ void process_note(song_t *song, channel_t *channel, note_t *note)
 			channel_note_cut(channel);
 			return;
 		}
-		
+
 		period = note_to_period(noteval, sample->c5speed);
-		
+		channel->c5speed = sample->c5speed;
+		channel->realnote = noteval;
+
 		/* FIXME: this is wrong - Gxx with no prior note should operate as if Gxx wasn't there.
 		I'm handling this for now by setting the target period for ALL notes played, and kicking off
 		a new voice if nothing is playing, but this really shouldn't be checking the effect at all
@@ -368,6 +370,25 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		song->process_row = PROCESS_NEXT_ORDER;
 		song->break_row = px * 10 + py;;
 		break;
+
+	case 'J': /* arpeggio */
+		SPLIT_PARAM(param, px, py);
+		if (py || px) {
+			channel->arp_mid = note_to_period(channel->realnote,
+							channel->c5speed);
+		}
+		if (py) {
+			channel->arp_low = note_to_period(channel->realnote
+							- py, channel->c5speed);
+		}
+		if (px) {
+			channel->arp_high = note_to_period(channel->realnote
+							+ px, channel->c5speed);
+		}
+		if (channel->fg_voice)
+			voice_set_position(channel->fg_voice, 0);
+		break;
+
 	case 'D': /* volume slide */
 	case 'K': /* vol slide + continue vibrato */
 	case 'L': /* vol slide + continue pitch slide */
@@ -501,6 +522,13 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 			channel_set_panning(channel, PAN_SURROUND);
 			break;
 
+		case 0xa:
+			/* high order offset */
+			channel->offset &= 0xF0000;
+			channel->offset |= (param & 0x0f) << 16;
+			if (channel->fg_voice)
+				voice_set_position(channel->fg_voice, channel->offset);
+			break;
 		case 0xb: /* pattern loop */
 			if (param & 0xf) {
 				/* SBx: loop to point */
@@ -598,6 +626,15 @@ void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note
 		break;
 	case 'G': /* pitch slide to note */
 		fx_tone_portamento(song, channel);
+		break;
+	case 'J': /* arpeggio */
+		if (channel->period < channel->arp_mid) {
+			channel_set_period(song, channel, channel->arp_mid);
+		} else if (channel->period > channel->arp_mid) {
+			channel_set_period(song, channel, channel->arp_low);
+		} else {
+			channel_set_period(song, channel, channel->arp_high);
+		}
 		break;
 	case 'N': /* channel volume slide */
 		SPLIT_PARAM(channel->channel_volume_slide, px, py);
@@ -753,6 +790,7 @@ static void convert_16ss(song_t *song, char *buffer, const int32_t *from, int sa
 	/* while (samples--) results in decl %edi; cmpl $-1, %edi; je; but when
 	explicitly comparing against zero, it just uses testl. go figure. */
 	while (samples-- > 0) {
+/* TODO */
 		if (0 && song->global_volume < 0x80) {
 			s = *from++;
 			s = ((long)s * song->global_volume) >> 0;
