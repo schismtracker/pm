@@ -245,7 +245,7 @@ typedef struct instrument {
 	char title[26];
 	char filename[14];
 	uint8_t nna, dct, dca; /* new note action and dupe check (see enums) */
-	uint16_t fadeout; /* 0..256! */
+	int fadeout; /* 0..256! */
 	int8_t pitch_pan_separation; /* -32..32 - pitch-pan separation */
 	uint8_t pitch_pan_center; /* 0..NOTE_LAST - pitch-pan center (note value) */
 	uint8_t global_volume; /* 0..128 */
