@@ -1,6 +1,6 @@
 #include "pm.h"
 
-/* loads everything but old 15-instrument mods... yes, even FLT4 and WOW files */
+/* loads everything but old 15-instrument mods... yes, even FLT8 and WOW files */
 
 int fmt_mod_load(song_t *song, FILE *fp)
 {
