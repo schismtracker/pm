@@ -230,6 +230,11 @@ typedef struct sample {
 	uint8_t volume, global_volume;
 	int c5speed;
 	uint8_t flags; /* SAMP_ values */
+
+	int vibrato_speed;
+	int vibrato_depth;
+	int vibrato_rate;
+	const int *vibrato_table;
 } sample_t;
 
 typedef struct envelope {
@@ -273,8 +278,14 @@ typedef struct voice {
 	instrument_t *inst_bg; /* when backgrounded, inst_bg contains original instrument reference */
 	int flags; /* SAMP_ and VOICE_ values */
 	/* this stuff isn't used directly by the mixer */
-	int volume, panning, frequency;
+	int volume, panning, frequency, vfrequency;
 	int nfc, fadeout;
+
+	int vibrato_pos;
+	int vibrato_speed;
+	int vibrato_depth;
+	int vibrato_rate;
+	const int *vibrato_table;
 } voice_t;
 
 struct channel {
@@ -287,10 +298,20 @@ struct channel {
 
 	int delay, cut;
 
+	int vibrato_on;
 	int vibrato_speed;
 	int vibrato_pos;
-	const int *vibrato_mod;
 	const int *vibrato_use;
+
+	int tremelo_on;
+	int tremelo_speed;
+	int tremelo_pos;
+	const int *tremelo_use;
+
+	int panbrello_on;
+	int panbrello_speed;
+	int panbrello_pos;
+	const int *panbrello_use;
 
 	uint8_t initial_channel_volume; /* 0..64 - the Mxx volume */
 	uint8_t initial_panning; /* 0..64 */
@@ -387,6 +408,8 @@ extern const int RAMPDOWN_TABLE[256];
 extern const int SQUARE_TABLE[256];
 extern int RANDOM_TABLE[256];
 
+extern const int *TABLE_SELECT[4];
+
 /* --------------------------------------------------------------------------------------------------------- */
 /* functions */
 
@@ -411,7 +434,8 @@ void voice_process(voice_t *voice, int32_t *buffer, int size);
 
 /* maybe it'd be useful to have an independent voice_set_sample function that updates all the sample data? */
 void voice_start(voice_t *voice, sample_t *sample);
-void voice_set_frequency(song_t *song, voice_t *voice, int frequency);
+void voice_set_frequency(voice_t *voice, int frequency);
+void voice_apply_frequency(song_t *song, voice_t *voice, int frequency);
 
 /* this should be the FV for the channel after calculating global volume, channel volume, etc. */
 void voice_set_volume(voice_t *voice, int volume);
@@ -460,14 +484,14 @@ void channel_note_cut(channel_t *channel);
 void channel_set_volume(channel_t *channel, int volume); /* volume column, i.e. the "note" volume */
 void channel_set_channel_volume(channel_t *channel, int volume); /* this is the Mxx volume */
 void channel_set_panning(channel_t *channel, int panning); /* range 0..64 */
-void channel_set_period(song_t *song, channel_t *channel, int period);
+void channel_set_period(channel_t *channel, int period);
 void channel_link_voice(channel_t *channel, voice_t *voice);
 void process_note(song_t *song, channel_t *channel, note_t *note);
 void process_volume_tick0(UNUSED song_t *song, channel_t *channel, note_t *note);
 void process_effects_tick0(song_t *song, channel_t *channel, note_t *note);
 void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note);
+int process_xxxrato(song_t *song, int scale, int x, const int *table, int speed, int rate, int *depth, int *pos);
 int increment_row(song_t *song);
-void handle_fadeouts(song_t *song);
 
 /* This will return zero if the end of the song is reached and MIX_LOOP_SONG is not enabled. */
 int process_tick(song_t *song);

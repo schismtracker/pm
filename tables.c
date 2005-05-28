@@ -91,3 +91,10 @@ const int GX_SLIDE_TABLE[9] = {1, 4, 8, 16, 32, 64, 96, 128, 255};
 const char HEXDIGITS[] = "0123456789ABCDEF";
 
 const char NOTES[] = "C-C#D-D#E-F-F#G-G#A-A#B-";
+
+const int *TABLE_SELECT[4] = {
+	SINE_TABLE,
+	RAMPDOWN_TABLE,
+	SQUARE_TABLE,
+	RANDOM_TABLE,
+};

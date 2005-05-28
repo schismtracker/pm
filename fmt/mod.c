@@ -83,6 +83,10 @@ int fmt_mod_load(song_t *song, FILE *fp)
 		if (tmp > 2)
 			song->samples[n].flags |= SAMP_LOOP;
 		song->samples[n].loop_end = song->samples[n].loop_start + tmp;
+		song->samples[n].vibrato_speed = 0;
+		song->samples[n].vibrato_depth = 0;
+		song->samples[n].vibrato_rate = 0;
+		song->samples[n].vibrato_table = 0;
 	}
 	
 	/* pattern/order stuff */

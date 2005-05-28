@@ -85,6 +85,10 @@ int fmt_mtm_load(song_t *song, FILE *fp)
 			sample->loop_start >>= 1;
 			sample->loop_end >>= 1;
 		}
+		song->samples[n].vibrato_speed = 0;
+		song->samples[n].vibrato_depth = 0;
+		song->samples[n].vibrato_rate = 0;
+		song->samples[n].vibrato_table = 0;
 	}
 
         /* orderlist */

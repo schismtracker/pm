@@ -67,6 +67,10 @@ int fmt_669_load(song_t *song, FILE *fp)
                 song->samples[smp].c5speed = 8363;
                 song->samples[smp].volume = 60;  /* ickypoo */
                 song->samples[smp].global_volume = 64;  /* ickypoo */
+		song->samples[smp].vibrato_speed = 0;
+		song->samples[smp].vibrato_depth = 0;
+		song->samples[smp].vibrato_rate = 0;
+		song->samples[smp].vibrato_table = 0;
         }
 
         /* patterns */

@@ -293,6 +293,11 @@ int fmt_it_load(song_t *song, FILE *fp)
 		sample->loop_end = shdr.loop_end;
 		sample->global_volume = shdr.gvl;
 
+		sample->vibrato_speed = shdr.vis;
+		sample->vibrato_depth = shdr.vid;
+		sample->vibrato_rate = shdr.vir;
+		sample->vibrato_table = TABLE_SELECT[shdr.vit % 4];
+
 		sample->flags = 0;
 		if (shdr.flag & 2) {
 			bps = 2;

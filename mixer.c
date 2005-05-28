@@ -119,12 +119,32 @@ void voice_start(voice_t *voice, sample_t *sample)
 	voice->cur = 0;
 	voice->nfc = 1024;
 	voice->fadeout = 0;
+
+	voice->vibrato_pos = 0;
+	voice->vibrato_depth = sample->vibrato_depth; /* initial */
+	voice->vibrato_speed = sample->vibrato_speed;
+	voice->vibrato_rate = sample->vibrato_rate;
+	voice->vibrato_table = sample->vibrato_table;
+	
+}
+void voice_vibrato(voice_t *voice, const int *tab, int speed, int depth, int rate)
+{
+	voice->vibrato_pos = 0;
+	voice->vibrato_speed = speed;
+	voice->vibrato_table = tab;
+	voice->vibrato_rate = rate;
+	voice->vibrato_depth = 256-depth;
 }
 
+
+void voice_set_frequency(voice_t *voice, int frequency)
+{
+	voice->vfrequency = frequency;
+}
 /* Bleh. REALLY wish this didn't have to take the song as a parameter, but
 I don't see any other way to get the mixing rate here without saving it in
 every voice or keeping a global, and those are both bogus. */
-void voice_set_frequency(song_t *song, voice_t *voice, int frequency)
+void voice_apply_frequency(song_t *song, voice_t *voice, int frequency)
 {
 	voice->frequency = frequency;
 	voice->inc = (frequency << FRACBITS) / song->mixing_rate;

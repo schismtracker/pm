@@ -144,6 +144,11 @@ int fmt_s3m_load(song_t *song, FILE *fp)
 		fseek(fp, 12, SEEK_CUR);        /* wasted space */
 		fread(sample->title, 1, 25, fp);
 		sample->title[25] = 0;
+
+		sample->vibrato_speed = 0;
+		sample->vibrato_depth = 0;
+		sample->vibrato_rate = 0;
+		sample->vibrato_table = 0;
 	}
 	
 	/* sample data */

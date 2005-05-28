@@ -38,9 +38,19 @@ void song_reset_play_state(song_t *song)
 		song->channels[n].last_special = 0;
 		song->channels[n].last_tempo = song->tempo;
 		song->channels[n].vibrato_use = SINE_TABLE;
-		song->channels[n].vibrato_mod = SINE_TABLE;
 		song->channels[n].vibrato_speed = 0;
+		song->channels[n].vibrato_on = 0;
 		song->channels[n].vibrato_pos = 0;
+
+		song->channels[n].tremelo_use = SINE_TABLE;
+		song->channels[n].tremelo_speed = 0;
+		song->channels[n].tremelo_on = 0;
+		song->channels[n].tremelo_pos = 0;
+
+		song->channels[n].panbrello_use = SINE_TABLE;
+		song->channels[n].panbrello_speed = 0;
+		song->channels[n].panbrello_on = 0;
+		song->channels[n].panbrello_pos = 0;
 	}
 	
 	for (n = 0; n < MAX_VOICES; n++)
@@ -188,11 +198,11 @@ void channel_set_panning(channel_t *channel, int panning)
 		voice_set_panning(channel->fg_voice, channel->panning);
 }
 
-void channel_set_period(song_t *song, channel_t *channel, int period)
+void channel_set_period(channel_t *channel, int period)
 {
 	channel->period = period;
 	if (channel->fg_voice)
-		voice_set_frequency(song, channel->fg_voice, period_to_frequency(period));
+		voice_set_frequency(channel->fg_voice, period_to_frequency(period));
 }
 
 void channel_link_voice(channel_t *channel, voice_t *voice)
@@ -282,7 +292,7 @@ void process_note(song_t *song, channel_t *channel, note_t *note)
 			if (voice) {
 				channel_link_voice(channel, voice);
 				voice_start(voice, sample);
-				channel_set_period(song, channel, period);
+				channel_set_period(channel, period);
 			}
 			channel_set_global_volume(channel,
 				sample->global_volume << 1,
@@ -309,7 +319,7 @@ static void fx_channel_volume_slide(channel_t *channel, int amount)
 	channel_set_channel_volume(channel, CLAMP(amount, 0, 64));
 }
 
-static void fx_tone_portamento(song_t *song, channel_t *channel)
+static void fx_tone_portamento(channel_t *channel)
 {
 	/* logic for this effect borrowed from mikmod */
 	int period = channel->period;
@@ -329,7 +339,7 @@ static void fx_tone_portamento(song_t *song, channel_t *channel)
 		/* must be too low. add. */
 		period += g;
 	}
-	channel_set_period(song, channel, period);
+	channel_set_period(channel, period);
 }
 
 #define SPLIT_PARAM(param, px, py) ({px = param >> 4; py = param & 0xf;})
@@ -369,11 +379,11 @@ static void process_direct_effect_tick0(song_t *song, channel_t *channel,
 		}
 		switch (channel->pitch_slide >> 4) {
 		case 0xe:
-			channel_set_period(song, channel, channel->period + (channel->pitch_slide & 0xf));
+			channel_set_period(channel, channel->period + (channel->pitch_slide & 0xf));
 			channel->flags |= CHAN_FINE_SLIDE;
 			break;
 		case 0xf:
-			channel_set_period(song, channel, channel->period + 4 * (channel->pitch_slide & 0xf));
+			channel_set_period(channel, channel->period + 4 * (channel->pitch_slide & 0xf));
 			channel->flags |= CHAN_FINE_SLIDE;
 			break;
 		default:
@@ -388,11 +398,11 @@ static void process_direct_effect_tick0(song_t *song, channel_t *channel,
 		}
 		switch (channel->pitch_slide >> 4) {
 		case 0xe:
-			channel_set_period(song, channel, channel->period - (channel->pitch_slide & 0xf));
+			channel_set_period(channel, channel->period - (channel->pitch_slide & 0xf));
 			channel->flags |= CHAN_FINE_SLIDE;
 			break;
 		case 0xf:
-			channel_set_period(song, channel, channel->period - 4 * (channel->pitch_slide & 0xf));
+			channel_set_period(channel, channel->period - 4 * (channel->pitch_slide & 0xf));
 			channel->flags |= CHAN_FINE_SLIDE;
 			break;
 		default:
@@ -416,9 +426,40 @@ static void process_direct_effect_tick0(song_t *song, channel_t *channel,
 	switch (effect) {
 	case 'H':
 	case 'K':
+		channel->vibrato_on = 1;
 		if (param) {
 			channel->vibrato_speed = param;
 		}
+		break;
+	default:
+		channel->vibrato_on = 0;
+		channel->vibrato_pos = 0;
+		break;
+	};
+	/* tremelo setup */
+	switch (effect) {
+	case 'R':
+		channel->tremelo_on = 1;
+		if (param) {
+			channel->tremelo_speed = param;
+		}
+		break;
+	default:
+		channel->tremelo_on = 0;
+		channel->tremelo_pos = 0;
+		break;
+	};
+	/* panbrello setup */
+	switch (effect) {
+	case 'Y':
+		channel->panbrello_on = 1;
+		if (param) {
+			channel->panbrello_speed = param;
+		}
+		break;
+	default:
+		channel->panbrello_on = 0;
+		channel->panbrello_pos = 0;
 		break;
 	};
 }
@@ -537,6 +578,8 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 	case 'F': /* pitch slide up */
 	case 'G': /* pitch slide to note */
 	case 'H': /* vibrato */
+	case 'R': /* tremelo */
+	case 'Y': /* panbrello :) */
 		process_direct_effect_tick0(song, channel, effect, param);
 		break;
 
@@ -588,6 +631,16 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 			channel->last_special = param;
 		}
 		switch (param >> 4) {
+		case 0x3:
+			channel->vibrato_use = TABLE_SELECT[(param & 0x0f) % 4];
+			break;
+		case 0x4:
+			channel->tremelo_use = TABLE_SELECT[(param & 0x0f) % 4];
+			break;
+		case 0x5:
+			channel->panbrello_use = TABLE_SELECT[(param & 0x0f) % 4];
+			break;
+
 		case 0x6:
 			/* haven't tested this much, but it should work ok */
 			song->tick += param & 0xf;
@@ -691,7 +744,7 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 	}
 }
 
-static void process_direct_effect_tickN(song_t *song, channel_t *channel,
+static void process_direct_effect_tickN(UNUSED song_t *song, channel_t *channel,
 				int effect)
 {
 	int px, py;
@@ -706,14 +759,14 @@ static void process_direct_effect_tickN(song_t *song, channel_t *channel,
 		break;
 	case 'E':      /* pitch slide down */
 		if (!(channel->flags & CHAN_FINE_SLIDE))
-			channel_set_period(song, channel, channel->period + 4 * (channel->pitch_slide));
+			channel_set_period(channel, channel->period + 4 * (channel->pitch_slide));
 		break;
 	case 'F': /* pitch slide up */
 		if (!(channel->flags & CHAN_FINE_SLIDE))
-			channel_set_period(song, channel, channel->period - 4 * (channel->pitch_slide));
+			channel_set_period(channel, channel->period - 4 * (channel->pitch_slide));
 		break;
 	case 'G': /* pitch slide to note */
-		fx_tone_portamento(song, channel);
+		fx_tone_portamento(channel);
 		break;
 	};
 }
@@ -775,7 +828,7 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 	case 0:
 		break;
 	case 'L': /* vol slide + continue pitch slide */
-		fx_tone_portamento(song, channel);
+		fx_tone_portamento(channel);
 		/* fall through */
 	case 'D': /* volume slide */
 	case 'K': /* vol slide + continue vibrato */
@@ -884,20 +937,39 @@ int increment_row(song_t *song)
 	return 1;
 }
 
-void handle_fadeouts(song_t *song)
+void handle_voices_final(song_t *song)
 {
-	int n;
+	int n, freq, period;
 	voice_t *voice;
 	
-	for (n = 0, voice = song->voices; n < MAX_VOICES; n++, voice++)
-		if (voice->data && voice->fadeout) {
-			voice_fade(voice);
+	for (n = 0, voice = song->voices; n < MAX_VOICES; n++, voice++) {
+		if (!voice->data) continue;
+
+		if (voice->fadeout) voice_fade(voice);
+
+		freq = voice->vfrequency;
+		if (voice->vibrato_speed && voice->vibrato_depth) {
+			period = frequency_to_period(voice->vfrequency);
+			period = process_xxxrato(song, 9, period,
+						voice->vibrato_table,
+						voice->vibrato_speed,
+						voice->vibrato_rate,
+						&voice->vibrato_depth,
+						&voice->vibrato_pos);
+			freq = period_to_frequency(period);
 		}
+		
+		voice_apply_frequency(song, voice, freq);
+
+	/* TODO envelopes go here */
+	}
 }
+
 
 void process_channel_tick(song_t *song, channel_t *channel, note_t *note)
 {
 	int period;
+
 	if (note->effect == 'J') {
 		switch ((song->speed - song->tick) % 3) {
 		case 0:
@@ -915,20 +987,46 @@ void process_channel_tick(song_t *song, channel_t *channel, note_t *note)
 		period = channel->period;
 	}
 
-	if (channel->vibrato_speed) {
-		if (channel->vibrato_use == RANDOM_TABLE) {
-			RANDOM_TABLE[ channel->vibrato_pos ] = rand() % 256;
-		}
-		period +=
-			((channel->vibrato_use[ channel->vibrato_pos ] * 
-					channel->vibrato_speed & 0x0F) >> 
-				(channel->vibrato_speed & 0x0F));
-		channel->vibrato_pos = (channel->vibrato_pos + ((channel->vibrato_speed & 0xF0) >> 4)) % 256;
+	/* channel vibrato is for effects, etc */
+	if (channel->vibrato_on) {
+		int d;
+		d = (channel->vibrato_speed & 0x0F) << 4;
+		period = process_xxxrato(song, 9, period,
+					channel->vibrato_use,
+					(channel->vibrato_speed & 0xF0) >> 2,
+					0, &d, &channel->vibrato_pos);
+	}
+	if (channel->tremelo_on) {
+		int d, vol;
+		d = (channel->tremelo_speed & 0x0F) << 4;
+		vol = process_xxxrato(song, 8, channel_get_volume(channel),
+					channel->tremelo_use,
+					(channel->tremelo_speed & 0xF0) >> 2,
+					0, &d, &channel->tremelo_pos);
+		voice_set_volume(channel->fg_voice, vol);
 	}
 
 	if (channel->fg_voice)
-		voice_set_frequency(song, channel->fg_voice, period_to_frequency(period));
+		voice_set_frequency(channel->fg_voice, period_to_frequency(period));
 }
+
+int process_xxxrato(song_t *song, int scale, int x, const int *table, int speed, int rate, int *depth, int *pos)
+{
+	int n;
+	if (!table || !speed || !depth || !pos) return x;
+	if (table == RANDOM_TABLE) RANDOM_TABLE[*pos] = rand() & 255;
+	n = ((table[*pos] * (*depth))) >> scale;
+	if (song->flags & SONG_LINEAR_SLIDES) {
+		/* TODO need linear slide */
+		x += n;
+	} else {
+		x += n;
+	}
+	(*pos) = ((*pos) + speed) & 255;
+	(*depth) = ((*depth) + rate) & 255;
+	return x;
+}
+
 
 int process_tick(song_t *song)
 {
@@ -1014,9 +1112,7 @@ int process_tick(song_t *song)
 	/* [Instrument mode?] */
 	
 	/* IT only handles this in instrument mode */
-	if (song->flags & SONG_INSTRUMENT_MODE) {
-		handle_fadeouts(song);
-	}
+	handle_voices_final(song);
 	
 	return 1;
 }

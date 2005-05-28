@@ -45,6 +45,10 @@ int fmt_sfx_load(song_t *song, FILE *fp)
 		if (tmp > 2)
 			sample->flags |= SAMP_LOOP;
 		sample->loop_end = sample->loop_start + tmp;
+		sample->vibrato_speed = 0;
+		sample->vibrato_depth = 0;
+		sample->vibrato_rate = 0;
+		sample->vibrato_table = 0;
 	}
 	
 	/* pattern/order stuff */
