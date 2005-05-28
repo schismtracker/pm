@@ -611,8 +611,19 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 				channel->loop_row = song->cur_row;
 			}
 			break;
-		case 'd':
+		case 0xc:
+			if (param & 0x0f) {
+				/* handled on tickn */
+			} else {
+				channel_note_cut(channel);
+			}
+			break;
+		case 0xd:
 			/* sadly; handled elsewhere. search for: SDx */
+			break;
+		case 0xe:
+			/* whole pattern delay */
+			song->tick += (param & 0x0F) * song->speed;
 			break;
 		default:
 			TODO("effect S%02X", param);
@@ -764,6 +775,17 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 			fx_channel_volume_slide(channel, -py);
 		}
 		break;
+	case 'S':
+		SPLIT_PARAM(note->param, px, py);
+		switch (px) {
+		case 0xc:
+			/* cut after */
+			if ((song->speed - song->tick) == py) {
+				channel_note_cut(channel);
+			}
+			break;
+
+		};
 	case 'T':
 		SPLIT_PARAM(channel->last_tempo, px, py);
 		switch (px) {
