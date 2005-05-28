@@ -496,20 +496,22 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 
 	case 'J': /* arpeggio */
 		SPLIT_PARAM(param, px, py);
-		if (py || px) {
-			channel->arp_mid = note_to_period(channel->realnote,
-							channel->c5speed);
+		channel->arp_mid = note_to_period(channel->realnote,
+						channel->c5speed);
+		channel->arp_low = note_to_period(channel->realnote
+						+ py, channel->c5speed);
+		channel->arp_high = note_to_period(channel->realnote
+						+ px, channel->c5speed);
+		break;
+	case 'Q':
+		if (param & 0x0F) {
+			channel->q_retrig &= 0xF0;
+			channel->q_retrig |= (param & 0x0F);
 		}
-		if (py) {
-			channel->arp_low = note_to_period(channel->realnote
-							- py, channel->c5speed);
+		if (param & 0xF0) {
+			channel->q_retrig &= 0x0F;
+			channel->q_retrig |= (param & 0xF0);
 		}
-		if (px) {
-			channel->arp_high = note_to_period(channel->realnote
-							+ px, channel->c5speed);
-		}
-		if (channel->fg_voice)
-			voice_set_position(channel->fg_voice, 0);
 		break;
 
 	case 'K': /* vol slide + continue vibrato */
@@ -807,6 +809,9 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 			fx_channel_volume_slide(channel, -py);
 		}
 		break;
+
+	case 'Q': /* retrigger */
+
 	case 'S':
 		/* we have to touch param here; SCn happens tickN */
 		if ((channel->last_special & 0xF0) == 0xC0) {

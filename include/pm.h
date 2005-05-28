@@ -283,6 +283,7 @@ struct channel {
 	int c5speed; /* cached from sample */
 
 	int last_special;
+	int q_retrig;
 
 	int delay, cut;
 
