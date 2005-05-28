@@ -937,7 +937,9 @@ int process_tick(song_t *song)
 	&& (	(note->param & 0xF0) == 0xD0
 	|| (note->param == 0 && (channel->last_special & 0xF0) == 0xD0)
 			)) {
+				/* SD0 == SD1 */
 				channel->delay = note->param & 0x0F;
+				if (channel->delay == 0) channel->delay = 1;
 			} else {
 				process_note(song, channel, note);
 				process_effects_tick0(song, channel, note);
