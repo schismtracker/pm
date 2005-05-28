@@ -373,6 +373,7 @@ extern const int PERIOD_TABLE[]; /* one octave */
 extern const int MOD_FINETUNE_TABLE[];
 extern const int PROTRACKER_PANNING[]; /* L/R/R/L */
 extern const int SHORT_PANNING[16]; /* S8x => 0..64 map */
+extern const int GX_SLIDE_TABLE[9];
 extern const char HEXDIGITS[];
 extern const char NOTES[]; /* "C-" to "B-" (concatenated) */
 

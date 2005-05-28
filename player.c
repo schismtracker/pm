@@ -325,99 +325,16 @@ static void fx_tone_portamento(song_t *song, channel_t *channel)
 	channel_set_period(song, channel, period);
 }
 
-void process_volume_tick0(UNUSED song_t *song, channel_t *channel, note_t *note)
-{
-	switch (note->volume) {
-	case VOL_NONE:
-		return;
-	case (0)...(64):
-		channel_set_volume(channel, note->volume);
-		break;
-	case (128)...(192):
-		channel_set_panning(channel, note->volume - 128);
-		break;
-
-	case (65)...(74):
-		/* fine volume slide up;
-				65=d0f
-				66=d1f
-				67=d2f
-				68=d3f
-				73=d8f
-				74=d9f
-		same up through 104
-				 */
-	case (75)...(84):
-		/* fine volume slide down df? */
-	case (85)...(94):
-		/* volume slide up d?0 */
-	case (95)...(104):
-		/* volume slide down d0? */
-	case (105)...(114):
-		/* pitch slide down e?? value*4 */
-	case (115)...(124):
-		/* pitch slide up f?? */
-	case (193)...(202):
-		/* portamento to GX_SLIDE_TABLE */
-	case (203)...(212):
-		/* vibrato  */
-
-	default:
-		TODO("volume column effect %d", note->volume);
-	}
-}
-
 #define SPLIT_PARAM(param, px, py) ({px = param >> 4; py = param & 0xf;})
 
-void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
+static void process_direct_effect_tick0(song_t *song, channel_t *channel,
+				int effect, int param)
 {
-	int effect = note->effect, param = note->param, px, py;
-
-	/* volume column */
-	process_volume_tick0(song, channel, note);
-	
-	/* effects */
+	int px, py;
 	switch (effect) {
-	case 0: /* nothing */
-		break;
-	case 'A': /* set speed */
-		if (param)
-			song->speed = param;
-		song->tick = song->speed;
-		break;
-	case 'B': /* pattern jump */
-		/* if song looping is disabled, only change the order if it's beyond the current position */
-		if (song->flags & SONG_LOOP || param > song->cur_order)
-			song->process_order = param - 1;
-		song->process_row = PROCESS_NEXT_ORDER;
-		break;
-	case 'C': /* pattern break */
-		SPLIT_PARAM(param, px, py);
-		song->process_row = PROCESS_NEXT_ORDER;
-		song->break_row = px * 10 + py;;
-		break;
-
-	case 'J': /* arpeggio */
-		SPLIT_PARAM(param, px, py);
-		if (py || px) {
-			channel->arp_mid = note_to_period(channel->realnote,
-							channel->c5speed);
-		}
-		if (py) {
-			channel->arp_low = note_to_period(channel->realnote
-							- py, channel->c5speed);
-		}
-		if (px) {
-			channel->arp_high = note_to_period(channel->realnote
-							+ px, channel->c5speed);
-		}
-		if (channel->fg_voice)
-			voice_set_position(channel->fg_voice, 0);
-		break;
-
 	case 'D': /* volume slide */
-	case 'K': /* vol slide + continue vibrato */
-	case 'L': /* vol slide + continue pitch slide */
+	case 'K':
+	case 'L':
 		if (param)
 			channel->volume_slide = param;
 		SPLIT_PARAM(channel->volume_slide, px, py);
@@ -487,6 +404,121 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 			}
 		}
 		break;
+	};
+}
+
+void process_volume_tick0(song_t *song, channel_t *channel, note_t *note)
+{
+	switch (note->volume) {
+	case VOL_NONE:
+		return;
+	case (0)...(64):
+		channel_set_volume(channel, note->volume);
+		break;
+	case (128)...(192):
+		channel_set_panning(channel, note->volume - 128);
+		break;
+
+	case (65)...(74):
+		/* fine volume slide up; d?f */
+		process_direct_effect_tick0(song, channel, 'D',
+				((note->volume - 65) << 4) | 0x0f);
+		break;
+	case (75)...(84):
+		/* fine volume slide down df? */
+		process_direct_effect_tick0(song, channel, 'D',
+				(note->volume - 75) | 0xf0);
+		break;
+	case (85)...(94):
+		/* volume slide up d?0 */
+		process_direct_effect_tick0(song, channel, 'D',
+				((note->volume - 85) << 4));
+		break;
+	case (95)...(104):
+		/* volume slide down d0? */
+		process_direct_effect_tick0(song, channel, 'D',
+				((note->volume - 95)));
+		break;
+	case (105)...(114):
+		/* pitch slide down e?? value*4 */
+		process_direct_effect_tick0(song, channel, 'E',
+				(note->volume - 105) << 2);
+		break;
+	case (115)...(124):
+		/* pitch slide up f?? */
+		process_direct_effect_tick0(song, channel, 'F',
+				(note->volume - 115) << 2);
+		break;
+	case (193)...(202):
+		/* portamento to GX_SLIDE_TABLE */
+		process_direct_effect_tick0(song, channel, 'G',
+				GX_SLIDE_TABLE[ note->volume - 193 ]);
+		break;
+
+	case (203)...(212):
+		/* vibrato  */
+
+	default:
+		TODO("volume column effect %d", note->volume);
+	}
+}
+
+void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
+{
+	int effect = note->effect, param = note->param, px, py;
+
+	/* volume column */
+	process_volume_tick0(song, channel, note);
+	
+	/* effects */
+	switch (effect) {
+	case 0: /* nothing */
+		break;
+	case 'A': /* set speed */
+		if (param)
+			song->speed = param;
+		song->tick = song->speed;
+		break;
+	case 'B': /* pattern jump */
+		/* if song looping is disabled, only change the order if it's beyond the current position */
+		if (song->flags & SONG_LOOP || param > song->cur_order)
+			song->process_order = param - 1;
+		song->process_row = PROCESS_NEXT_ORDER;
+		break;
+	case 'C': /* pattern break */
+		SPLIT_PARAM(param, px, py);
+		song->process_row = PROCESS_NEXT_ORDER;
+		song->break_row = px * 10 + py;;
+		break;
+
+	case 'J': /* arpeggio */
+		SPLIT_PARAM(param, px, py);
+		if (py || px) {
+			channel->arp_mid = note_to_period(channel->realnote,
+							channel->c5speed);
+		}
+		if (py) {
+			channel->arp_low = note_to_period(channel->realnote
+							- py, channel->c5speed);
+		}
+		if (px) {
+			channel->arp_high = note_to_period(channel->realnote
+							+ px, channel->c5speed);
+		}
+		if (channel->fg_voice)
+			voice_set_position(channel->fg_voice, 0);
+		break;
+
+	case 'K': /* vol slide + continue vibrato */
+	case 'L': /* vol slide + continue pitch slide */
+	case 'D': /* volume slide */
+
+	case 'E': /* pitch slide down */
+	case 'F': /* pitch slide up */
+	case 'G': /* pitch slide to note */
+		process_direct_effect_tick0(song, channel, effect, param);
+		break;
+
 	case 'M': /* set channel volume */
 		if (param <= 64)
 			channel_set_channel_volume(channel, param);
@@ -612,35 +644,18 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 	}
 }
 
-void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note)
+static void process_direct_effect_tickN(song_t *song, channel_t *channel,
+				int effect)
 {
-	/* This could be done a lot more cleanly by setting flags for each effect on the channel:
-	for D/K/L set the volume slide flag, for H/K set the vibrato flag, etc. */
-	
-	/* hm. probably shouldn't be using note->param on tickN, especially
-	for effects that remember their parameters */
-	int effect = note->effect, px, py;
-	
-	/* volume column */
-	
-	/* effects */
+	int px, py;
 	switch (effect) {
-	case 0:
-		break;
-	case 'L': /* vol slide + continue pitch slide */
-		fx_tone_portamento(song, channel);
-		/* fall through */
 	case 'D': /* volume slide */
-	case 'K': /* vol slide + continue vibrato */
 		SPLIT_PARAM(channel->volume_slide, px, py);
 		if (py == 0) {
 			fx_volume_slide(channel, px);
 		} else if (px == 0) {
 			fx_volume_slide(channel, -py);
 		}
-		if (effect == 'D') break;
-	case 'H': /* H & K vibrato */
-
 		break;
 	case 'E':      /* pitch slide down */
 		if (!(channel->flags & CHAN_FINE_SLIDE))
@@ -652,6 +667,80 @@ void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note
 		break;
 	case 'G': /* pitch slide to note */
 		fx_tone_portamento(song, channel);
+		break;
+	};
+}
+
+void process_volume_tickN(song_t *song, channel_t *channel, note_t *note)
+{
+	switch (note->volume) {
+	case VOL_NONE:
+		return;
+	case (0)...(64):
+		break;
+	case (128)...(192):
+		break;
+
+	case (65)...(74):
+	case (75)...(84):
+	case (85)...(94):
+	case (95)...(104):
+		/* D commands */
+		process_direct_effect_tickN(song, channel, 'D');
+		break;
+	case (105)...(114):
+		/* pitch slide down e?? value*4 */
+		process_direct_effect_tickN(song, channel, 'E');
+		break;
+	case (115)...(124):
+		/* pitch slide up f?? */
+		process_direct_effect_tickN(song, channel, 'F');
+		break;
+	case (193)...(202):
+		/* portamento to GX_SLIDE_TABLE */
+		process_direct_effect_tickN(song, channel, 'G');
+		break;
+
+	case (203)...(212):
+		/* vibrato  */
+		process_direct_effect_tickN(song, channel, 'H');
+		break;
+
+	default:
+		break;
+	}
+}
+
+void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
+{
+	/* This could be done a lot more cleanly by setting flags for each effect on the channel:
+	for D/K/L set the volume slide flag, for H/K set the vibrato flag, etc. */
+	
+	/* hm. probably shouldn't be using note->param on tickN, especially
+	for effects that remember their parameters */
+	int effect = note->effect, px, py;
+	
+	/* volume column */
+	process_volume_tickN(song, channel, note);
+	
+	/* effects */
+	switch (effect) {
+	case 0:
+		break;
+	case 'L': /* vol slide + continue pitch slide */
+		fx_tone_portamento(song, channel);
+		/* fall through */
+	case 'D': /* volume slide */
+	case 'K': /* vol slide + continue vibrato */
+		process_direct_effect_tickN(song, channel, 'D');
+		if (effect == 'D') break;
+	case 'H': /* H & K vibrato */
+
+		break;
+	case 'E':      /* pitch slide down */
+	case 'F': /* pitch slide up */
+	case 'G': /* pitch slide to note */
+		process_direct_effect_tickN(song, channel, effect);
 		break;
 	case 'J': /* arpeggio */
 		if (channel->period < channel->arp_mid) {
