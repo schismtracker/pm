@@ -504,7 +504,6 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 			channel->arp_high = note_to_period(channel->realnote
 							+ px, channel->c5speed);
 		}
-		channel_set_period(song, channel, channel->arp_mid);
 		break;
 	case 'Q':
 		if (param & 0x0F) {
@@ -796,13 +795,7 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 		process_direct_effect_tickN(song, channel, effect);
 		break;
 	case 'J': /* arpeggio */
-		if (channel->period == channel->arp_mid) {
-			channel_set_period(song, channel, channel->arp_low);
-		} else if (channel->period == channel->arp_low) {
-			channel_set_period(song, channel, channel->arp_high);
-		} else {
-			channel_set_period(song, channel, channel->arp_mid);
-		}
+		/* handled elsewhere */
 		break;
 	case 'N': /* channel volume slide */
 		SPLIT_PARAM(channel->channel_volume_slide, px, py);
@@ -814,6 +807,7 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 		break;
 
 	case 'Q': /* retrigger */
+		break;
 
 	case 'S':
 		/* we have to touch param here; SCn happens tickN */
@@ -890,6 +884,30 @@ void handle_fadeouts(song_t *song)
 		}
 }
 
+void process_channel_tick(song_t *song, channel_t *channel, note_t *note)
+{
+	if (note->effect == 'J') {
+		int period;
+		switch ((song->speed - song->tick) % 3) {
+		case 0:
+			period = 0;
+			break;
+		case 1:
+			period = channel->arp_high- channel->arp_mid;
+			break;
+		case 2:
+			period = channel->arp_low - channel->arp_mid;
+			break;
+		};
+		period += channel->period;
+		if (channel->fg_voice)
+			voice_set_frequency(song, channel->fg_voice, period_to_frequency(period));
+	} else {
+		if (channel->fg_voice)
+			voice_set_frequency(song, channel->fg_voice, period_to_frequency(channel->period));
+	}
+}
+
 int process_tick(song_t *song)
 {
 	/* [Bracketed comments] are straight from the processing flowchart in ittech.txt. */
@@ -952,6 +970,7 @@ int process_tick(song_t *song)
 				process_note(song, channel, note);
 				process_effects_tick0(song, channel, note);
 			}
+			process_channel_tick(song, channel, note);
 		}
 	} else {
 		for (n = 0, note = song->row_data, channel = song->channels;
@@ -962,9 +981,11 @@ int process_tick(song_t *song)
 					process_note(song, channel, note);
 					process_effects_tick0(song, channel, note);
 				}
+				process_channel_tick(song, channel, note);
 				continue;
 			}
 			process_effects_tickN(song, channel, note);
+			process_channel_tick(song, channel, note);
 		}
 	}
 	
