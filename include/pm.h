@@ -282,6 +282,8 @@ struct channel {
 	uint8_t last_tempo; /* last Txx value */
 	int c5speed; /* cached from sample */
 
+	int delay, cut;
+
 	uint8_t initial_channel_volume; /* 0..64 - the Mxx volume */
 	uint8_t initial_panning; /* 0..64 */
 	voice_t *fg_voice; /* the voice playing in the foreground, or NULL */

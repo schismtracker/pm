@@ -34,6 +34,7 @@ void song_reset_play_state(song_t *song)
 		song->channels[n].channel_volume = song->channels[n].initial_channel_volume;
 		song->channels[n].panning = song->channels[n].initial_panning;
 		song->channels[n].nna_note = NOTE_CUT;
+		song->channels[n].delay = 0;
 		song->channels[n].last_tempo = song->tempo;
 	}
 	
@@ -195,6 +196,7 @@ void channel_link_voice(channel_t *channel, voice_t *voice)
 	channel->voices[channel->num_voices++] = voice;
 	voice->host = channel;
 }
+
 
 void process_note(song_t *song, channel_t *channel, note_t *note)
 {
@@ -609,6 +611,9 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 				channel->loop_row = song->cur_row;
 			}
 			break;
+		case 'd':
+			/* sadly; handled elsewhere. search for: SDx */
+			break;
 		default:
 			TODO("effect S%02X", param);
 		}
@@ -874,12 +879,25 @@ int process_tick(song_t *song)
 	if (is_tick0) {
 		for (n = 0, note = song->row_data, channel = song->channels;
 		     n < MAX_CHANNELS; n++, channel++, note++) {
-			process_note(song, channel, note);
-			process_effects_tick0(song, channel, note);
+			if (note->effect == 'S' /* SDx */
+			&& (note->param & 0xF0) == 0xD0) {
+				channel->delay = note->param & 0x0F;
+			} else {
+				process_note(song, channel, note);
+				process_effects_tick0(song, channel, note);
+			}
 		}
 	} else {
 		for (n = 0, note = song->row_data, channel = song->channels;
 		     n < MAX_CHANNELS; n++, channel++, note++) {
+			if (channel->delay > 0) { /* SDx */
+				channel->delay--;
+				if (channel->delay == 0) {
+					process_note(song, channel, note);
+					process_effects_tick0(song, channel, note);
+				}
+				continue;
+			}
 			process_effects_tickN(song, channel, note);
 		}
 	}
