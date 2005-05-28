@@ -312,11 +312,6 @@ struct channel {
 	uint16_t urky_form; /* like umode; sine,square,ramp(ukh), sin,sq,r(r) */
 /*.... TODO */
 
-	/* (J) tick counts down from set&0xF then we set volume */
-	uint8_t retrigger_set;
-	uint8_t retrigger_vol;
-	uint8_t retrigger_tick;
-	
 	/* (I) this is a countdown; for Ixx; initially set is set if we see param
 	then tick -= 0x10; until tick &0xF0 == 0 then tick-- with volume=0 */
 	uint8_t tremor_set;

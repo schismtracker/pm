@@ -521,6 +521,15 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		process_direct_effect_tick0(song, channel, effect, param);
 		break;
 
+	case 'I': /* tremor */
+		if (param & 0xf0 && param & 0x0f) {
+			channel->tremor_tick = channel->tremor_set = param;
+		}
+		if (channel->fg_voice)
+			voice_set_volume(channel->fg_voice,
+					channel_get_volume(channel));
+		break;
+
 	case 'M': /* set channel volume */
 		if (param <= 64)
 			channel_set_channel_volume(channel, param);
@@ -641,7 +650,6 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		}
 		break;
 	case 'V': /* set global volume */
-		TODO("GLOBAL VOVLUME SLIDE %d", note->param);
 		if (note->param <= 0x80) {
 			song->global_volume = note->param;
 		}
@@ -753,6 +761,25 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 	case 'H': /* H & K vibrato */
 
 		break;
+
+	case 'I': /* tremor */
+		if (channel->tremor_tick & 0xF0) {
+			channel->tremor_tick -= 0x10;
+			if ((channel->tremor_tick & 0xF0) == 0) {
+				/* mute */
+				if (channel->fg_voice)
+					voice_set_volume(channel->fg_voice, 0);
+			}
+		} else {
+			channel->tremor_tick --;
+			if (channel->tremor_tick == 0) {
+				channel->tremor_tick = channel->tremor_set;
+				if (channel->fg_voice)
+					voice_set_volume(channel->fg_voice,
+							channel_get_volume(channel));
+			}
+		}
+
 	case 'E':      /* pitch slide down */
 	case 'F': /* pitch slide up */
 	case 'G': /* pitch slide to note */
@@ -945,14 +972,13 @@ static void convert_16ss(song_t *song, char *buffer, const int32_t *from, int sa
 	/* while (samples--) results in decl %edi; cmpl $-1, %edi; je; but when
 	explicitly comparing against zero, it just uses testl. go figure. */
 	while (samples-- > 0) {
-/* TODO */
-		if (0 && song->global_volume < 0x80) {
+		if (song->global_volume < 0x80) {
 			s = *from++;
-			s = ((long)s * song->global_volume) >> 0;
+			s = ((long)s * song->global_volume) >> 6;
 			*to++ = CLAMP(s, -32768, 32767);
 
 			s = *from++;
-			s = ((long)s * song->global_volume) >> 0;
+			s = ((long)s * song->global_volume) >> 6;
 			*to++ = CLAMP(s, -32768, 32767);
 		} else {
 			s = *from++; *to++ = CLAMP(s, -32768, 32767);
