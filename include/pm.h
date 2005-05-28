@@ -287,6 +287,11 @@ struct channel {
 
 	int delay, cut;
 
+	int vibrato_speed;
+	int vibrato_pos;
+	const int *vibrato_mod;
+	const int *vibrato_use;
+
 	uint8_t initial_channel_volume; /* 0..64 - the Mxx volume */
 	uint8_t initial_panning; /* 0..64 */
 	voice_t *fg_voice; /* the voice playing in the foreground, or NULL */
@@ -376,6 +381,11 @@ extern const int SHORT_PANNING[16]; /* S8x => 0..64 map */
 extern const int GX_SLIDE_TABLE[9];
 extern const char HEXDIGITS[];
 extern const char NOTES[]; /* "C-" to "B-" (concatenated) */
+
+extern const int SINE_TABLE[256];
+extern const int RAMPDOWN_TABLE[256];
+extern const int SQUARE_TABLE[256];
+extern int RANDOM_TABLE[256];
 
 /* --------------------------------------------------------------------------------------------------------- */
 /* functions */

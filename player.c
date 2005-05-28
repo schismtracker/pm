@@ -37,6 +37,10 @@ void song_reset_play_state(song_t *song)
 		song->channels[n].delay = 0;
 		song->channels[n].last_special = 0;
 		song->channels[n].last_tempo = song->tempo;
+		song->channels[n].vibrato_use = SINE_TABLE;
+		song->channels[n].vibrato_mod = SINE_TABLE;
+		song->channels[n].vibrato_speed = 0;
+		song->channels[n].vibrato_pos = 0;
 	}
 	
 	for (n = 0; n < MAX_VOICES; n++)
@@ -408,6 +412,15 @@ static void process_direct_effect_tick0(song_t *song, channel_t *channel,
 		}
 		break;
 	};
+	/* vibrato setup */
+	switch (effect) {
+	case 'H':
+	case 'K':
+		if (param) {
+			channel->vibrato_speed = param;
+		}
+		break;
+	};
 }
 
 void process_volume_tick0(song_t *song, channel_t *channel, note_t *note)
@@ -523,6 +536,7 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 	case 'E': /* pitch slide down */
 	case 'F': /* pitch slide up */
 	case 'G': /* pitch slide to note */
+	case 'H': /* vibrato */
 		process_direct_effect_tick0(song, channel, effect, param);
 		break;
 
@@ -767,9 +781,6 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 	case 'K': /* vol slide + continue vibrato */
 		process_direct_effect_tickN(song, channel, 'D');
 		if (effect == 'D') break;
-	case 'H': /* H & K vibrato */
-
-		break;
 
 	case 'I': /* tremor */
 		if (channel->tremor_tick & 0xF0) {
@@ -886,8 +897,8 @@ void handle_fadeouts(song_t *song)
 
 void process_channel_tick(song_t *song, channel_t *channel, note_t *note)
 {
+	int period;
 	if (note->effect == 'J') {
-		int period;
 		switch ((song->speed - song->tick) % 3) {
 		case 0:
 			period = 0;
@@ -900,12 +911,23 @@ void process_channel_tick(song_t *song, channel_t *channel, note_t *note)
 			break;
 		};
 		period += channel->period;
-		if (channel->fg_voice)
-			voice_set_frequency(song, channel->fg_voice, period_to_frequency(period));
 	} else {
-		if (channel->fg_voice)
-			voice_set_frequency(song, channel->fg_voice, period_to_frequency(channel->period));
+		period = channel->period;
 	}
+
+	if (channel->vibrato_speed) {
+		if (channel->vibrato_use == RANDOM_TABLE) {
+			RANDOM_TABLE[ channel->vibrato_pos ] = rand() % 256;
+		}
+		period +=
+			((channel->vibrato_use[ channel->vibrato_pos ] * 
+					channel->vibrato_speed & 0x0F) >> 
+				(channel->vibrato_speed & 0x0F));
+		channel->vibrato_pos = (channel->vibrato_pos + ((channel->vibrato_speed & 0xF0) >> 4)) % 256;
+	}
+
+	if (channel->fg_voice)
+		voice_set_frequency(song, channel->fg_voice, period_to_frequency(period));
 }
 
 int process_tick(song_t *song)

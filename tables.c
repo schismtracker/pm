@@ -24,6 +24,8 @@ files, IT shifts the stored value left two and then adds two. (which produces so
 between 2 and 62) */
 const int SHORT_PANNING[16] = {0, 4, 9, 13, 17, 21, 26, 30, 34, 38, 43, 47, 51, 55, 60, 64};
 
+int RANDOM_TABLE[256] = {0};
+
 /* from Impulse Tracker */
 const int SINE_TABLE[256] = {
 	 0,  2,  3,  5,  6,  8,  9, 11, 12, 14, 16, 17, 19, 20, 22, 23,
