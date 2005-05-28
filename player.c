@@ -661,7 +661,7 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		break;
 
 	case 'W': /* global volume slide */
-		TODO("GLOBAL VOVLUME SLIDE ");
+		TODO("GLOBAL VOLUME SLIDE");
 		break;
 	case 'X': /* set panning */
 		/* Panning values are 0..64 internally, so convert the value to the proper range */
