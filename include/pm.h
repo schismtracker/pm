@@ -282,6 +282,8 @@ struct channel {
 	uint8_t last_tempo; /* last Txx value */
 	int c5speed; /* cached from sample */
 
+	int last_special;
+
 	int delay, cut;
 
 	uint8_t initial_channel_volume; /* 0..64 - the Mxx volume */

@@ -35,6 +35,7 @@ void song_reset_play_state(song_t *song)
 		song->channels[n].panning = song->channels[n].initial_panning;
 		song->channels[n].nna_note = NOTE_CUT;
 		song->channels[n].delay = 0;
+		song->channels[n].last_special = 0;
 		song->channels[n].last_tempo = song->tempo;
 	}
 	
@@ -563,6 +564,11 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		}
 		break;
 	case 'S': /* special */
+		if (param == 0) {
+			param = channel->last_special;
+		} else {
+			channel->last_special = param;
+		}
 		switch (param >> 4) {
 		case 0x6:
 			/* haven't tested this much, but it should work ok */
@@ -621,10 +627,9 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 			}
 			break;
 		case 0xc:
-			if (param & 0x0f) {
-				/* handled on tickn */
-			} else {
-				channel_note_cut(channel);
+			if (!(param & 0x0f)) {
+				/* IT says SC0 == SC1 */
+				channel->last_special = 0xC1;
 			}
 			break;
 		case 0xd:
@@ -780,7 +785,7 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 			}
 		}
 
-	case 'E':      /* pitch slide down */
+	case 'E': /* pitch slide down */
 	case 'F': /* pitch slide up */
 	case 'G': /* pitch slide to note */
 		process_direct_effect_tickN(song, channel, effect);
@@ -803,11 +808,10 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 		}
 		break;
 	case 'S':
-		SPLIT_PARAM(note->param, px, py);
-		switch (px) {
-		case 0xc:
+		/* we have to touch param here; SCn happens tickN */
+		if ((channel->last_special & 0xF0) == 0xC0) {
 			/* cut after */
-			if ((song->speed - song->tick) == py) {
+			if ((song->speed - song->tick) == (channel->last_special & 0x0f)) {
 				channel_note_cut(channel);
 			}
 			break;
@@ -928,8 +932,11 @@ int process_tick(song_t *song)
 	if (is_tick0) {
 		for (n = 0, note = song->row_data, channel = song->channels;
 		     n < MAX_CHANNELS; n++, channel++, note++) {
+/* this is ugly... */
 			if (note->effect == 'S' /* SDx */
-			&& (note->param & 0xF0) == 0xD0) {
+	&& (	(note->param & 0xF0) == 0xD0
+	|| (note->param == 0 && (channel->last_special & 0xF0) == 0xD0)
+			)) {
 				channel->delay = note->param & 0x0F;
 			} else {
 				process_note(song, channel, note);
