@@ -37,6 +37,7 @@ int fmt_sfx_load(song_t *song, FILE *fp)
 		sample->volume = fgetc(fp);
 		if (sample->volume > 64)
 			sample->volume = 64;
+		sample->global_volume = 64;
 		fread(&tmp, 2, 1, fp);
 		sample->loop_start = bswapBE16(tmp);
 		fread(&tmp, 2, 1, fp);

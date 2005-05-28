@@ -74,6 +74,7 @@ int fmt_mod_load(song_t *song, FILE *fp)
 		song->samples[n].volume = fgetc(fp);
 		if (song->samples[n].volume > 64)
 			song->samples[n].volume = 64;
+		song->samples[n].global_volume = 64;
 		
 		fread(&tmp, 1, 2, fp);
 		song->samples[n].loop_start = bswapBE16(tmp) * 2;

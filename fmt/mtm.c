@@ -77,6 +77,7 @@ int fmt_mtm_load(song_t *song, FILE *fp)
                 }
                 sample->c5speed = MOD_FINETUNE_TABLE[fgetc(fp) & 0xf];
                 sample->volume = fgetc(fp);
+                sample->global_volume = 64;
                 if (fgetc(fp) & 1) {
 			TODO("double check 16 bit sample loading");
                         sample->flags |= SAMP_16BIT;

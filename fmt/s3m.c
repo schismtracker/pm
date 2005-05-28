@@ -129,6 +129,7 @@ int fmt_s3m_load(song_t *song, FILE *fp)
 		fread(&tmplong, 4, 1, fp);
 		sample->loop_end = bswapLE32(tmplong);
 		sample->volume = fgetc(fp);
+		sample->global_volume = 64;
 		fgetc(fp);      /* unused byte */
 		fgetc(fp);      /* packing info (never used) */
 		c = fgetc(fp);  /* flags */

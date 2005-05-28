@@ -66,6 +66,7 @@ int fmt_669_load(song_t *song, FILE *fp)
 
                 song->samples[smp].c5speed = 8363;
                 song->samples[smp].volume = 60;  /* ickypoo */
+                song->samples[smp].global_volume = 64;  /* ickypoo */
         }
 
         /* patterns */
