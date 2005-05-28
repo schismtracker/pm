@@ -191,6 +191,7 @@ void channel_set_channel_volume(channel_t *channel, int volume)
 		voice_set_volume(channel->voices[n], channel_get_volume(channel));
 }
 
+
 void channel_set_panning(channel_t *channel, int panning)
 {
 	channel->panning = panning;
@@ -307,6 +308,17 @@ void process_note(song_t *song, channel_t *channel, note_t *note)
 	channel->nna_note = note->note;
 }
 
+static void fx_global_volume_slide(song_t *song, int amount)
+{
+	amount += song->global_volume;
+	song->global_volume = CLAMP(amount, 0, 128);
+
+}
+static void fx_panning_slide(channel_t *channel, int amount)
+{
+	amount += channel->panning;
+	channel_set_panning(channel, CLAMP(amount, 0, 64));
+}
 static void fx_volume_slide(channel_t *channel, int amount)
 {
 	amount += channel->volume;
@@ -421,51 +433,96 @@ static void process_direct_effect_tick0(song_t *song, channel_t *channel,
 			}
 		}
 		break;
+	case 'P': /* pan slide */
+		if (param) channel->panning_slide = param;
+		SPLIT_PARAM(channel->panning_slide, px, py);
+		if (py == 0) {
+			/* Px0 (only slide on tick 0 if x == 0xf) */
+			if (px == 0xf)
+				fx_panning_slide(channel, 15);
+		} else if (px == 0) {
+			/* P0x (only slide on tick 0 if x == 0xf) */
+			if (py == 0xf)
+				fx_panning_slide(channel, -15);
+		} else if (py == 0xf) {
+			/* PxF */
+			fx_panning_slide(channel, px);
+		} else if (px == 0xf) {
+			/* PFx */
+			fx_panning_slide(channel, -py);
+		}
+		break;
+	case 'W': /* global volume slide */
+		if (param) channel->global_volume_slide = param;
+		SPLIT_PARAM(channel->global_volume_slide, px, py);
+		if (py == 0) {
+			/* Wx0 (only slide on tick 0 if x == 0xf) */
+			if (px == 0xf)
+				fx_global_volume_slide(song, 15);
+		} else if (px == 0) {
+			/* W0x (only slide on tick 0 if x == 0xf) */
+			if (py == 0xf)
+				fx_global_volume_slide(song, -15);
+		} else if (py == 0xf) {
+			/* WxF */
+			fx_global_volume_slide(song, px);
+		} else if (px == 0xf) {
+			/* WFx */
+			fx_global_volume_slide(song, -py);
+		}
+		break;
+
 	};
 	/* vibrato setup */
 	switch (effect) {
 	case 'H':
+		if (param) channel->vibrato_effect = param;
+		/* fall through */
 	case 'K':
+		SPLIT_PARAM(channel->vibrato_effect, px, py);
+		channel->vibrato_speed = px << 2;
+		channel->vibrato_depth = py << 2;
+		if (song->flags & SONG_OLD_EFFECTS)
+			channel->vibrato_depth <<= 1;
 		channel->vibrato_on = 1;
-		if (param) {
-			channel->vibrato_speed = param;
-		}
 		break;
-	default:
-		channel->vibrato_on = 0;
-		channel->vibrato_pos = 0;
+	case 'U':
+		if (param) channel->vibrato_effect = param;
+		SPLIT_PARAM(channel->vibrato_effect, px, py);
+		channel->vibrato_speed = px << 2;
+		channel->vibrato_depth = py;
+		if (song->flags & SONG_OLD_EFFECTS)
+			channel->vibrato_depth <<= 1;
+		channel->vibrato_on = 1;
 		break;
 	};
 	/* tremelo setup */
-	switch (effect) {
-	case 'R':
+	if (effect == 'R') {
+		if (param) channel->tremelo_effect = param;
+		
+		SPLIT_PARAM(channel->tremelo_effect, px, py);
+		channel->tremelo_speed = px << 2;
+		channel->tremelo_depth = py << 2;
+		if (song->flags & SONG_OLD_EFFECTS)
+			channel->tremelo_depth <<= 1;
 		channel->tremelo_on = 1;
-		if (param) {
-			channel->tremelo_speed = param;
-		}
-		break;
-	default:
-		channel->tremelo_on = 0;
-		channel->tremelo_pos = 0;
-		break;
-	};
+	}
 	/* panbrello setup */
-	switch (effect) {
-	case 'Y':
+	if (effect == 'Y') {
+		if (param) channel->panbrello_effect = param;
+		
+		SPLIT_PARAM(channel->panbrello_effect, px, py);
+		channel->panbrello_speed = px;
+		channel->panbrello_depth = py << 4;
+		if (song->flags & SONG_OLD_EFFECTS)
+			channel->panbrello_depth <<= 1;
 		channel->panbrello_on = 1;
-		if (param) {
-			channel->panbrello_speed = param;
-		}
-		break;
-	default:
-		channel->panbrello_on = 0;
-		channel->panbrello_pos = 0;
-		break;
 	};
 }
 
 void process_volume_tick0(song_t *song, channel_t *channel, note_t *note)
 {
+
 	switch (note->volume) {
 	case VOL_NONE:
 		return;
@@ -474,6 +531,7 @@ void process_volume_tick0(song_t *song, channel_t *channel, note_t *note)
 		break;
 	case (128)...(192):
 		channel_set_panning(channel, note->volume - 128);
+
 		break;
 
 	case (65)...(74):
@@ -578,8 +636,11 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 	case 'F': /* pitch slide up */
 	case 'G': /* pitch slide to note */
 	case 'H': /* vibrato */
+	case 'U': /* FINE vibrato */
 	case 'R': /* tremelo */
 	case 'Y': /* panbrello :) */
+	case 'P': /* pan slide commands */
+	case 'W': /* global volume slide commands */
 		process_direct_effect_tick0(song, channel, effect, param);
 		break;
 
@@ -731,9 +792,6 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		}
 		break;
 
-	case 'W': /* global volume slide */
-		TODO("GLOBAL VOLUME SLIDE");
-		break;
 	case 'X': /* set panning */
 		/* Panning values are 0..64 internally, so convert the value to the proper range */
 		channel_set_panning(channel, param * 64 / 255);
@@ -744,7 +802,7 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 	}
 }
 
-static void process_direct_effect_tickN(UNUSED song_t *song, channel_t *channel,
+static void process_direct_effect_tickN(song_t *song, channel_t *channel,
 				int effect)
 {
 	int px, py;
@@ -767,6 +825,22 @@ static void process_direct_effect_tickN(UNUSED song_t *song, channel_t *channel,
 		break;
 	case 'G': /* pitch slide to note */
 		fx_tone_portamento(channel);
+		break;
+	case 'P': /* panning slide */
+		SPLIT_PARAM(channel->panning_slide, px, py);
+		if (py == 0) {
+			fx_panning_slide(channel, px);
+		} else if (px == 0) {
+			fx_panning_slide(channel, -py);
+		}
+		break;
+	case 'W': /* global volume slide */
+		SPLIT_PARAM(channel->global_volume_slide, px, py);
+		if (py == 0) {
+			fx_global_volume_slide(song, px);
+		} else if (px == 0) {
+			fx_global_volume_slide(song, -py);
+		}
 		break;
 	};
 }
@@ -989,21 +1063,33 @@ void process_channel_tick(song_t *song, channel_t *channel, note_t *note)
 
 	/* channel vibrato is for effects, etc */
 	if (channel->vibrato_on) {
-		int d;
-		d = (channel->vibrato_speed & 0x0F) << 4;
-		period = process_xxxrato(song, 9, period,
+		period = process_xxxrato(song, 6, period,
 					channel->vibrato_use,
-					(channel->vibrato_speed & 0xF0) >> 2,
-					0, &d, &channel->vibrato_pos);
+					channel->vibrato_speed,
+					0,
+					&channel->vibrato_depth,
+					&channel->vibrato_pos);
 	}
 	if (channel->tremelo_on) {
-		int d, vol;
-		d = (channel->tremelo_speed & 0x0F) << 4;
-		vol = process_xxxrato(song, 8, channel_get_volume(channel),
+		int vol;
+		vol = process_xxxrato(song, 7, channel_get_volume(channel),
 					channel->tremelo_use,
-					(channel->tremelo_speed & 0xF0) >> 2,
-					0, &d, &channel->tremelo_pos);
+					channel->tremelo_speed,
+					0,
+					&channel->tremelo_depth,
+					&channel->tremelo_pos);
 		voice_set_volume(channel->fg_voice, vol);
+	}
+
+	if (channel->panbrello_on) {
+		int pos;
+		pos = process_xxxrato(song, 9, channel->panning,
+					channel->panbrello_use,
+					channel->panbrello_speed,
+					0,
+					&channel->panbrello_depth,
+					&channel->panbrello_pos);
+		voice_set_panning(channel->fg_voice, pos);
 	}
 
 	if (channel->fg_voice)
@@ -1015,7 +1101,9 @@ int process_xxxrato(song_t *song, int scale, int x, const int *table, int speed,
 	int n;
 	if (!table || !speed || !depth || !pos) return x;
 	if (table == RANDOM_TABLE) RANDOM_TABLE[*pos] = rand() & 255;
-	n = ((table[*pos] * (*depth))) >> scale;
+	n = table[*pos];
+	n *= (*depth);
+	n >>= scale;
 	if (song->flags & SONG_LINEAR_SLIDES) {
 		/* TODO need linear slide */
 		x += n;
@@ -1023,7 +1111,7 @@ int process_xxxrato(song_t *song, int scale, int x, const int *table, int speed,
 		x += n;
 	}
 	(*pos) = ((*pos) + speed) & 255;
-	(*depth) = ((*depth) + rate) & 255;
+	if (rate) (*depth) = ((*depth) + rate) & 255;
 	return x;
 }
 
@@ -1078,6 +1166,11 @@ int process_tick(song_t *song)
 	if (is_tick0) {
 		for (n = 0, note = song->row_data, channel = song->channels;
 		     n < MAX_CHANNELS; n++, channel++, note++) {
+			if (!channel->panbrello_on) channel->panbrello_pos = 0;
+			if (!channel->vibrato_on) channel->vibrato_pos = 0;
+			if (!channel->tremelo_on) channel->tremelo_pos = 0;
+
+			channel->panbrello_on = channel->tremelo_on = channel->vibrato_on = 0;
 /* this is ugly... */
 			if (note->effect == 'S' /* SDx */
 	&& (	(note->param & 0xF0) == 0xD0

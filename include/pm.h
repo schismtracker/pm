@@ -298,18 +298,25 @@ struct channel {
 
 	int delay, cut;
 
+	int vibrato_effect;
+	int tremelo_effect;
+	int panbrello_effect;
+
 	int vibrato_on;
 	int vibrato_speed;
+	int vibrato_depth;
 	int vibrato_pos;
 	const int *vibrato_use;
 
 	int tremelo_on;
 	int tremelo_speed;
+	int tremelo_depth;
 	int tremelo_pos;
 	const int *tremelo_use;
 
 	int panbrello_on;
 	int panbrello_speed;
+	int panbrello_depth;
 	int panbrello_pos;
 	const int *panbrello_use;
 
@@ -335,6 +342,8 @@ struct channel {
 	int target_period; /* where the portamento to note is heading */
 	int offset; /* "real" sample offset (the 0xYXX00 derived from Oxx and SAy) */
 	uint8_t volume_slide; /* last Dxx value */
+	uint8_t panning_slide;
+	uint8_t global_volume_slide;
 	/* these two are synchronized if compat. Gxx is enabled in the song flags */
 
 	/* (UKHRY S[345]) */
