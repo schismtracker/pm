@@ -496,12 +496,15 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 
 	case 'J': /* arpeggio */
 		SPLIT_PARAM(param, px, py);
-		channel->arp_mid = note_to_period(channel->realnote,
-						channel->c5speed);
-		channel->arp_low = note_to_period(channel->realnote
-						+ py, channel->c5speed);
-		channel->arp_high = note_to_period(channel->realnote
-						+ px, channel->c5speed);
+		if (param) {
+			channel->arp_mid = note_to_period(channel->realnote,
+							channel->c5speed);
+			channel->arp_low = note_to_period(channel->realnote
+							+ py, channel->c5speed);
+			channel->arp_high = note_to_period(channel->realnote
+							+ px, channel->c5speed);
+		}
+		channel_set_period(song, channel, channel->arp_mid);
 		break;
 	case 'Q':
 		if (param & 0x0F) {
@@ -793,12 +796,12 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 		process_direct_effect_tickN(song, channel, effect);
 		break;
 	case 'J': /* arpeggio */
-		if (channel->period < channel->arp_mid) {
-			channel_set_period(song, channel, channel->arp_mid);
-		} else if (channel->period > channel->arp_mid) {
+		if (channel->period == channel->arp_mid) {
 			channel_set_period(song, channel, channel->arp_low);
-		} else {
+		} else if (channel->period == channel->arp_low) {
 			channel_set_period(song, channel, channel->arp_high);
+		} else {
+			channel_set_period(song, channel, channel->arp_mid);
 		}
 		break;
 	case 'N': /* channel volume slide */
