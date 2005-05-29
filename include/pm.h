@@ -288,7 +288,7 @@ typedef struct voice {
 	int flags; /* SAMP_ and VOICE_ values */
 	/* this stuff isn't used directly by the mixer */
 	int volume, fvolume;
-	int panning;
+	int panning, fpanning;
 	int frequency, vfrequency;
 	int nfc, fadeout;
 
@@ -462,7 +462,7 @@ void voice_apply_frequency(song_t *song, voice_t *voice, int frequency);
 
 /* this should be the FV for the channel after calculating global volume, channel volume, etc. */
 void voice_set_volume(voice_t *voice, int volume);
-void voice_apply_volume(voice_t *voice, int volume);
+void voice_apply_volume_panning(voice_t *voice, int volume, int panning);
 void voice_set_panning(voice_t *voice, int panning);
 void voice_set_position(voice_t *voice, int position);
 

@@ -160,19 +160,19 @@ void voice_set_volume(voice_t *voice, int volume)
 {
 	voice->fvolume = CLAMP(volume, 0, 128);
 }
-void voice_apply_volume(voice_t *voice, int volume)
+void voice_apply_volume_panning(voice_t *voice, int volume, int panning)
 {
+	if (panning == PAN_SURROUND)
+		voice->panning = PAN_SURROUND;
+	else
+		voice->panning = CLAMP(panning, 0, 64);
 	voice->volume = CLAMP(volume, 0, 128);
 	voice_calc_volume(voice);
 }
 
 void voice_set_panning(voice_t *voice, int panning)
 {
-	if (panning == PAN_SURROUND)
-		voice->panning = PAN_SURROUND;
-	else
-		voice->panning = CLAMP(panning, 0, 64);
-	voice_calc_volume(voice);
+	voice->fpanning = CLAMP(panning, 0, 64);
 }
 
 void voice_set_position(voice_t *voice, int position)

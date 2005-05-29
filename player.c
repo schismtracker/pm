@@ -1096,7 +1096,7 @@ static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
 
 void handle_voices_final(song_t *song)
 {
-	int n, freq, period, vol;
+	int n, freq, period, vol, pan;
 	voice_t *voice;
 	instrument_t *inst;
 	int inst_bg;
@@ -1145,6 +1145,14 @@ void handle_voices_final(song_t *song)
 	/* TODO envelopes go here */
 		voice_apply_frequency(song, voice, freq);
 
+		pan = voice->fpanning;
+		if (inst && inst->pan_env.flags & IENV_ENABLED) {
+			pan = calculate_envelope(pan,
+						inst, voice, &inst->pan_env,
+						inst_bg, &voice->pan_env,
+						4, 1);
+		}
+
 		vol = voice->fvolume;
 		if (inst && inst->vol_env.flags & IENV_ENABLED) {
 			vol = calculate_envelope(vol,
@@ -1158,7 +1166,7 @@ void handle_voices_final(song_t *song)
 
 		if (voice->fadeout) voice_fade(voice);
 
-		voice_apply_volume(voice, vol);
+		voice_apply_volume_panning(voice, vol, pan);
 	}
 }
 
