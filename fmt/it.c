@@ -28,13 +28,10 @@ struct it_sample {
 	uint8_t vis, vid, vir, vit;
 };
 
-struct it_envnode {
-	uint8_t value;
-	uint16_t tick;
-};
-struct it_envelope {
-	uint8_t flags, num_nodes, loop_start, loop_end, susloop_start, susloop_end;
-	struct it_envnode nodes[25];
+struct it_envelope  {
+	uint8_t flags, num_nodes, loop_start, loop_end;
+	uint8_t susloop_start, susloop_end;
+	uint8_t packed_nodes[75];
 	uint8_t padding;
 };
 struct it_notetrans {
@@ -128,6 +125,33 @@ static void load_it_pattern(pattern_t *pattern, FILE *fp)
 		}
 	}
 }
+static void __read_env(envelope_t *env, struct it_envelope *ee)
+{
+	int i;
+
+	env->flags = 0;
+	env->nodes = ee->num_nodes;
+	env->loop_start = ee->loop_start;
+	env->loop_end = ee->loop_end;
+	env->sustain_start = ee->susloop_start;
+	env->sustain_end = ee->susloop_end;
+	if (ee->flags & 1) {
+		env->flags |= IENV_ENABLED;
+	}
+	if (ee->flags & 2) {
+		env->flags |= IENV_LOOP;
+	}
+	if (ee->flags & 4) {
+		env->flags |= IENV_SUSTAIN_LOOP;
+	}
+	
+	for (i = 0; i < 25; i++) {
+		env->values[i] = ee->packed_nodes[i * 3];
+		env->ticks[i] = ee->packed_nodes[(i * 3) + 1]
+				| ((ee->packed_nodes[(i * 3) + 2]) << 8);
+	}
+}
+
 
 int fmt_it_load(song_t *song, FILE *fp)
 {
@@ -229,48 +253,10 @@ int fmt_it_load(song_t *song, FILE *fp)
 		}
 		/* Ugh! This alone should be enough of a reason to use the same envelope structure
 		in memory as in the IT file... the trouble is, 16-bit values are slow :/ */
-		instrument->vol_env.nodes = ihdr.vol_env.num_nodes;
-		instrument->vol_env.loop_start = ihdr.vol_env.loop_start;
-		instrument->vol_env.loop_end = ihdr.vol_env.loop_end;
-		instrument->vol_env.sustain_start = ihdr.vol_env.susloop_start;
-		instrument->vol_env.sustain_end = ihdr.vol_env.susloop_end;
-		if (ihdr.vol_env.flags & 1) {
-			instrument->vol_env.flags |= IENV_ENABLED;
-			TODO("volume envelope");
-		}
-		if (ihdr.vol_env.flags & 2) instrument->vol_env.flags |= IENV_LOOP;
-		if (ihdr.vol_env.flags & 4) instrument->vol_env.flags |= IENV_SUSTAIN_LOOP;
-		instrument->pan_env.nodes = ihdr.pan_env.num_nodes;
-		instrument->pan_env.loop_start = ihdr.pan_env.loop_start;
-		instrument->pan_env.loop_end = ihdr.pan_env.loop_end;
-		instrument->pan_env.sustain_start = ihdr.pan_env.susloop_start;
-		instrument->pan_env.sustain_end = ihdr.pan_env.susloop_end;
-		if (ihdr.pan_env.flags & 1) {
-			instrument->pan_env.flags |= IENV_ENABLED;
-			TODO("panning envelope");
-		}
-		if (ihdr.pan_env.flags & 2) instrument->pan_env.flags |= IENV_LOOP;
-		if (ihdr.pan_env.flags & 4) instrument->pan_env.flags |= IENV_SUSTAIN_LOOP;
-		instrument->pitch_env.nodes = ihdr.pitch_env.num_nodes;
-		instrument->pitch_env.loop_start = ihdr.pitch_env.loop_start;
-		instrument->pitch_env.loop_end = ihdr.pitch_env.loop_end;
-		instrument->pitch_env.sustain_start = ihdr.pitch_env.susloop_start;
-		instrument->pitch_env.sustain_end = ihdr.pitch_env.susloop_end;
-		if (ihdr.pitch_env.flags & 1) {
-			TODO("pitch/filter envelope");
-			instrument->pitch_env.flags |= IENV_ENABLED;
-		}
-		if (ihdr.pitch_env.flags & 2) instrument->pitch_env.flags |= IENV_LOOP;
-		if (ihdr.pitch_env.flags & 4) instrument->pitch_env.flags |= IENV_SUSTAIN_LOOP;
+		__read_env(&instrument->vol_env, &ihdr.vol_env);
+		__read_env(&instrument->pan_env, &ihdr.pan_env);
+		__read_env(&instrument->pitch_env, &ihdr.pitch_env);
 		//if (ihdr.pitch_env.flags & 128) instrument->flags |= INST_FILTER;
-		for (pos = 0; pos < 25; pos++) {
-			instrument->vol_env.ticks[pos] = ihdr.vol_env.nodes[pos].tick;
-			instrument->vol_env.values[pos] = ihdr.vol_env.nodes[pos].value;
-			instrument->pan_env.ticks[pos] = ihdr.pan_env.nodes[pos].tick + 32;
-			instrument->pan_env.values[pos] = ihdr.pan_env.nodes[pos].value + 32;
-			instrument->pitch_env.ticks[pos] = ihdr.pitch_env.nodes[pos].tick + 32;
-			instrument->pitch_env.values[pos] = ihdr.pitch_env.nodes[pos].value + 32;
-		}
 	}
 	
 	for (n = 0, sample = song->samples + 1; n < hdr.smpnum; n++, sample++) {

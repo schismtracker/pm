@@ -177,6 +177,8 @@ enum {
 	IENV_ENABLED = 1,
 	IENV_LOOP = 2,
 	IENV_SUSTAIN_LOOP = 4,
+	IENV_LOOP_PINGPONG = 8,
+	IENV_SUSTAIN_PINGPONG = 16,
 };
 
 /* instrument flags */
@@ -238,13 +240,20 @@ typedef struct sample {
 } sample_t;
 
 typedef struct envelope {
-	int ticks[25]; /* 0..9999 */
-	int8_t values[25]; /* 0..64 (even for pitch and panning envelopes) */
+	int ticks[25]; /* 0..9999 (x) */
+	int8_t values[25]; /* 0..64 (even for pitch and panning envelopes; y) */
 	uint8_t nodes; /* 0..25 (actually 2..25) */
 	uint8_t loop_start, loop_end;
 	uint8_t sustain_start, sustain_end;
 	uint8_t flags; /* IENV_ values */
 } envelope_t;
+
+typedef struct envelope_memory {
+	int node;
+	int ticks;
+	int x, y;
+	int ratex, ratey;
+} envelope_memory_t;
 
 typedef struct instrument {
 	char title[26];
@@ -278,7 +287,9 @@ typedef struct voice {
 	instrument_t *inst_bg; /* when backgrounded, inst_bg contains original instrument reference */
 	int flags; /* SAMP_ and VOICE_ values */
 	/* this stuff isn't used directly by the mixer */
-	int volume, panning, frequency, vfrequency;
+	int volume, fvolume;
+	int panning;
+	int frequency, vfrequency;
 	int nfc, fadeout;
 
 	int vibrato_pos;
@@ -286,6 +297,9 @@ typedef struct voice {
 	int vibrato_depth;
 	int vibrato_rate;
 	const int *vibrato_table;
+
+	int noteon;
+	envelope_memory_t pitch_env, vol_env, pan_env;
 } voice_t;
 
 struct channel {
@@ -448,6 +462,7 @@ void voice_apply_frequency(song_t *song, voice_t *voice, int frequency);
 
 /* this should be the FV for the channel after calculating global volume, channel volume, etc. */
 void voice_set_volume(voice_t *voice, int volume);
+void voice_apply_volume(voice_t *voice, int volume);
 void voice_set_panning(voice_t *voice, int panning);
 void voice_set_position(voice_t *voice, int position);
 

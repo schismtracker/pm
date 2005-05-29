@@ -24,6 +24,7 @@ void voice_stop(voice_t *voice)
 {
 	voice->data = NULL;
 	voice->inst_bg = NULL;
+	voice->noteon = 0;
 	channel_remove_voice(voice->host, voice);
 }
 
@@ -111,6 +112,8 @@ static void voice_calc_volume(voice_t *voice)
 
 void voice_start(voice_t *voice, sample_t *sample)
 {
+	voice->noteon = 1;
+
 	voice->data = sample->data;
 	voice->length = sample->length << FRACBITS;
 	voice->loop_start = sample->loop_start << FRACBITS;
@@ -125,7 +128,10 @@ void voice_start(voice_t *voice, sample_t *sample)
 	voice->vibrato_speed = sample->vibrato_speed;
 	voice->vibrato_rate = sample->vibrato_rate;
 	voice->vibrato_table = sample->vibrato_table;
-	
+
+	memset(&voice->pitch_env, 0, sizeof(voice->pitch_env));
+	memset(&voice->vol_env, 0, sizeof(voice->vol_env));
+	memset(&voice->pan_env, 0, sizeof(voice->pan_env));
 }
 void voice_vibrato(voice_t *voice, const int *tab, int speed, int depth, int rate)
 {
@@ -152,6 +158,10 @@ void voice_apply_frequency(song_t *song, voice_t *voice, int frequency)
 
 void voice_set_volume(voice_t *voice, int volume)
 {
+	voice->fvolume = CLAMP(volume, 0, 128);
+}
+void voice_apply_volume(voice_t *voice, int volume)
+{
 	voice->volume = CLAMP(volume, 0, 128);
 	voice_calc_volume(voice);
 }
@@ -174,7 +184,6 @@ void voice_fade(voice_t *voice)
 {
 	if (voice->nfc > voice->fadeout) {
 		voice->nfc -= voice->fadeout;
-		voice_calc_volume(voice);
 	} else {
 		voice_stop(voice);
 	}

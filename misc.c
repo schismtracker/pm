@@ -32,7 +32,7 @@ int period_to_frequency(int period)
 	 *     14318180 - NTSC - MP uses this for XM/MT2
 	 *     14317456 - NTSC (2?) = 8363 * 1712 (middle C period)
 	 *     14317056 - ST3 style (I'm guessing this is a typo or something) */
-	if (period == 0)
+	if (period <= 0)
 		return INT_MAX;
 	return 14317456 / period;
 }

@@ -71,12 +71,16 @@ void channel_past_note_nna(song_t *song, channel_t *channel, int nna)
 		} else if (nna == NNA_FADE) {
 			for (n = 0; n < channel->num_voices; n++) {
 				v = channel->voices[n];
+				v->noteon = 0;
 				if (v->inst_bg) {
 					v->fadeout = v->inst_bg->fadeout << 2;
 				}
 			}
 		} else if (nna == NNA_OFF) {
-			TODO("PAST NOTE OFF");
+			for (n = 0; n < channel->num_voices; n++) {
+				v = channel->voices[n];
+				v->noteon = 0; /* will trigger sustain/etc */
+			}
 		}
 	}
 }
@@ -94,7 +98,7 @@ void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 			if (note->note == NOTE_CUT) {
 				nna = NNA_CUT;
 			} else if (note->note == NOTE_OFF) {
-				nna = i->nna;
+				nna = NOTE_OFF;
 			} else if (NOTE_IS_FADE(note->note)) {
 				nna = NNA_FADE;
 			} else if (i->dct == DCT_NOTE) { 
@@ -130,7 +134,8 @@ void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 
 			v = channel->fg_voice;
 			v->inst_bg = i;
-			if (nna == NNA_FADE || nna == NNA_OFF) {
+			v->noteon = 0;
+			if (nna == NNA_FADE) {
 				v->fadeout = i->fadeout << 2;
 			}
 		}
@@ -1011,31 +1016,147 @@ int increment_row(song_t *song)
 	return 1;
 }
 
+static void envelope_end(instrument_t *inst, voice_t *voice, int noff)
+{
+	if (noff && voice) {
+		if (inst->fadeout) voice->fadeout = inst->fadeout << 2;
+		voice->noteon = 0;
+	}
+/*TODO*/
+}
+static int envelope_value(int value, envelope_memory_t *m, int scale)
+{
+	value *= (m->y);
+	value >>= scale;
+	return value;
+}
+static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
+			envelope_t *env, UNUSED int isbg, envelope_memory_t *m, int scale, int noff)
+{
+	int nn;
+
+	if (m->ticks == 0) {
+		nn = m->node + 1;
+
+		/* TODO (someday) pingpong env */
+		m->ticks = (env->ticks[nn] - env->ticks[m->node]);
+		if (!(env->flags & (IENV_SUSTAIN_PINGPONG|IENV_LOOP_PINGPONG))) {
+			/* don't allow negative ticks unless pingponging */
+			if ((m->ticks) < 0) (m->ticks) *= -1;
+		}
+		m->y = env->values[m->node];
+		m->x = env->ticks[m->node];
+
+		m->node = nn;
+
+		/* distance */
+		nn = ((int)env->values[nn]) - (m->y);
+
+		/* approach rate */
+		if (((m->ticks) > 0 && nn > 0 && nn > (m->ticks)) || ((m->ticks) < 0 && nn > 0 && nn > -(m->ticks))
+		|| ((m->ticks) > 0 && nn < 0 && -nn > (m->ticks)) || ((m->ticks) < 0 && nn < 0 && -nn > -(m->ticks))) {
+			(m->ratey) = (nn / (m->ticks));
+			(m->ratex) = 1;
+		} else if (nn == 0) {
+			(m->ratex) = 1;
+			(m->ratey) = 1;
+		} else {
+			(m->ratex) = ((m->ticks) / nn);
+			(m->ratey) = 1;
+		}
+
+		if (voice->noteon) {
+			if (!(env->flags & IENV_SUSTAIN_PINGPONG) && (env->flags & IENV_SUSTAIN_LOOP)) {
+				if (m->node == env->sustain_end) {
+					m->node = env->sustain_start;
+				}
+			}
+		}
+		if (!(env->flags & IENV_LOOP_PINGPONG) && (env->flags & IENV_LOOP)) {
+			if (m->node == env->loop_end) {
+				m->node = env->loop_start;
+			}
+		}
+		if (m->node == env->nodes) {
+			envelope_end(inst, voice, noff);
+			return envelope_value(value,m,scale);
+		}
+
+	}
+
+	m->x += m->ratex;
+	if ((m->x % m->ratex) == 0) {
+		m->y += m->ratey;
+	}
+	m->ticks--;
+	return envelope_value(value,m,scale);
+}
+
 void handle_voices_final(song_t *song)
 {
-	int n, freq, period;
+	int n, freq, period, vol;
 	voice_t *voice;
+	instrument_t *inst;
+	int inst_bg;
 	
 	for (n = 0, voice = song->voices; n < MAX_VOICES; n++, voice++) {
 		if (!voice->data) continue;
 
-		if (voice->fadeout) voice_fade(voice);
+		inst_bg = 0;
+		if (song->flags & SONG_INSTRUMENT_MODE) {
+			if (voice->inst_bg) {
+				inst = voice->inst_bg;
+				inst_bg = 1;
+			
+			} else if (voice->host) {
+				inst = &song->instruments[ voice->host->instrument ];
+			} else {
+				inst = 0;
+			}
+		} else {
+			inst = 0;
+		}
+
 
 		freq = voice->vfrequency;
-		if (voice->vibrato_speed && voice->vibrato_depth) {
+		if ((voice->vibrato_speed && voice->vibrato_depth)
+		|| (inst && inst->pitch_env.flags & IENV_ENABLED)) {
 			period = frequency_to_period(voice->vfrequency);
-			period = process_xxxrato(song, 9, period,
-						voice->vibrato_table,
-						voice->vibrato_speed,
-						voice->vibrato_rate,
-						&voice->vibrato_depth,
-						&voice->vibrato_pos);
+			if (voice->vibrato_speed && voice->vibrato_depth) {
+				period = process_xxxrato(song, 9, period,
+							voice->vibrato_table,
+							voice->vibrato_speed,
+							voice->vibrato_rate,
+							&voice->vibrato_depth,
+							&voice->vibrato_pos);
+			}
+			if (inst && inst->pitch_env.flags & IENV_ENABLED) {
+
+				period = -calculate_envelope(period,
+						inst, voice, &inst->pitch_env,
+						inst_bg, &voice->pitch_env,
+						3, 0);
+			}
 			freq = period_to_frequency(period);
 		}
 		
+	/* TODO envelopes go here */
 		voice_apply_frequency(song, voice, freq);
 
-	/* TODO envelopes go here */
+		vol = voice->fvolume;
+		if (inst && inst->vol_env.flags & IENV_ENABLED) {
+			vol = calculate_envelope(vol,
+						inst, voice, &inst->vol_env,
+						inst_bg, &voice->vol_env,
+						5, 1);
+		} else {
+			if (!voice->noteon && inst && inst->fadeout)
+				voice->fadeout = (inst->fadeout << 2);
+		}
+
+		if (voice->fadeout) voice_fade(voice);
+
+		voice_apply_volume(voice, vol);
 	}
 }
 
