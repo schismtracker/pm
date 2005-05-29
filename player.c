@@ -1,5 +1,6 @@
 #include "pm.h"
 
+#define FADEOUT_MULTIPLIER	2
 /* --------------------------------------------------------------------------------------------------------- */
 /* playback */
 
@@ -73,7 +74,7 @@ void channel_past_note_nna(song_t *song, channel_t *channel, int nna)
 				v = channel->voices[n];
 				v->noteon = 0;
 				if (v->inst_bg) {
-					v->fadeout = v->inst_bg->fadeout << 2;
+					v->fadeout = v->inst_bg->fadeout << FADEOUT_MULTIPLIER;
 				}
 			}
 		} else if (nna == NNA_OFF) {
@@ -136,7 +137,7 @@ void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 			v->inst_bg = i;
 			v->noteon = 0;
 			if (nna == NNA_FADE) {
-				v->fadeout = i->fadeout << 2;
+				v->fadeout = i->fadeout << FADEOUT_MULTIPLIER;
 			}
 		}
 		channel->fg_voice = 0;
@@ -1019,7 +1020,7 @@ int increment_row(song_t *song)
 static void envelope_end(instrument_t *inst, voice_t *voice, int noff)
 {
 	if (noff && voice) {
-		if (inst->fadeout) voice->fadeout = inst->fadeout << 2;
+		if (inst->fadeout) voice->fadeout = inst->fadeout << FADEOUT_MULTIPLIER;
 		voice->noteon = 0;
 	}
 /*TODO*/
@@ -1077,7 +1078,8 @@ static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
 				m->node = env->loop_start;
 			}
 		}
-		if (m->node == env->nodes) {
+		if (m->node >= env->nodes) {
+			m->node = env->nodes;
 			envelope_end(inst, voice, noff);
 			return envelope_value(value,m,scale);
 		}
@@ -1158,10 +1160,10 @@ void handle_voices_final(song_t *song)
 			vol = calculate_envelope(vol,
 						inst, voice, &inst->vol_env,
 						inst_bg, &voice->vol_env,
-						4, 1) + 64;
+						6, 1);
 		} else {
 			if (!voice->noteon && inst && inst->fadeout)
-				voice->fadeout = (inst->fadeout << 2);
+				voice->fadeout = (inst->fadeout << FADEOUT_MULTIPLIER);
 		}
 
 		if (voice->fadeout) voice_fade(voice);
