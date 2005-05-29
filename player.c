@@ -1150,7 +1150,7 @@ void handle_voices_final(song_t *song)
 			pan = calculate_envelope(pan,
 						inst, voice, &inst->pan_env,
 						inst_bg, &voice->pan_env,
-						4, 1);
+						7, 0) + 32;
 		}
 
 		vol = voice->fvolume;
@@ -1158,7 +1158,7 @@ void handle_voices_final(song_t *song)
 			vol = calculate_envelope(vol,
 						inst, voice, &inst->vol_env,
 						inst_bg, &voice->vol_env,
-						5, 1);
+						4, 1) + 64;
 		} else {
 			if (!voice->noteon && inst && inst->fadeout)
 				voice->fadeout = (inst->fadeout << 2);
