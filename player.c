@@ -1083,13 +1083,15 @@ static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
 		}
 
 	}
+	value = envelope_value(value,m,scale);
 
 	m->x += m->ratex;
 	if ((m->x % m->ratex) == 0) {
 		m->y += m->ratey;
 	}
 	m->ticks--;
-	return envelope_value(value,m,scale);
+
+	return value;
 }
 
 void handle_voices_final(song_t *song)
