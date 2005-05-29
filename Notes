@@ -4,6 +4,7 @@ pitch/pan center, separation
 pan/swing
 pitch swing
 pitch midi (channel,program,banklo,bankhi)
+pitch -> filter envelope
 
 envelope carry
 
