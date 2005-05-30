@@ -1020,7 +1020,11 @@ int increment_row(song_t *song)
 static void envelope_end(instrument_t *inst, voice_t *voice, int noff)
 {
 	if (noff && voice) {
-		if (inst->fadeout) voice->fadeout = inst->fadeout << FADEOUT_MULTIPLIER;
+		if (inst->fadeout) {
+			voice->fadeout = inst->fadeout << FADEOUT_MULTIPLIER;
+		} else {
+			voice_stop(voice);
+		}
 		voice->noteon = 0;
 	}
 /*TODO*/
