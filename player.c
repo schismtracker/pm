@@ -1035,6 +1035,8 @@ static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
 			envelope_t *env, UNUSED int isbg, envelope_memory_t *m, int scale, int noff)
 {
 	int nn;
+	int dx, dy;
+	int adx, ady;
 
 	if (m->ticks == 0) {
 		nn = m->node + 1;
@@ -1048,36 +1050,38 @@ static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
 		m->y = env->values[m->node];
 		m->x = env->ticks[m->node];
 
-		m->node = nn;
-
-		/* distance */
-		nn = ((int)env->values[nn]) - (m->y);
-
-		/* approach rate */
-		if (((m->ticks) > 0 && nn > 0 && nn > (m->ticks)) || ((m->ticks) < 0 && nn > 0 && nn > -(m->ticks))
-		|| ((m->ticks) > 0 && nn < 0 && -nn > (m->ticks)) || ((m->ticks) < 0 && nn < 0 && -nn > -(m->ticks))) {
-			(m->ratey) = (nn / (m->ticks));
-			(m->ratex) = 1;
-		} else if (nn == 0) {
-			(m->ratex) = 1;
-			(m->ratey) = 1;
-		} else {
-			(m->ratex) = ((m->ticks) / nn);
-			(m->ratey) = 1;
-		}
-
 		if (voice->noteon) {
 			if (!(env->flags & IENV_SUSTAIN_PINGPONG) && (env->flags & IENV_SUSTAIN_LOOP)) {
-				if (m->node == env->sustain_end) {
-					m->node = env->sustain_start;
+				if (nn >= env->sustain_end) {
+					nn = env->sustain_start;
 				}
 			}
 		}
 		if (!(env->flags & IENV_LOOP_PINGPONG) && (env->flags & IENV_LOOP)) {
-			if (m->node == env->loop_end) {
-				m->node = env->loop_start;
+			if (nn >= env->loop_end) {
+				nn = env->loop_start;
 			}
 		}
+
+		m->node = nn;
+
+		/* distance */
+		dx = ((int)env->ticks[nn]) - (m->x);
+		dy = ((int)env->values[nn]) - (m->y);
+		adx = dx; if (adx < 0) adx *= -1;
+		ady = dy; if (ady < 0) ady *= -1;
+
+		/* approach rate */
+		if (dy != 0 && adx > ady) {
+			m->ratex = dx / dy;
+			m->ratey = 1;
+		} else if (dx != 0 && adx < ady) {
+			m->ratey = dy / dx;
+			m->ratex = 1;
+		} else {
+			m->ratex = m->ratey = 1;
+		}
+
 		if (m->node >= env->nodes) {
 			m->node = env->nodes;
 			envelope_end(inst, voice, noff);
