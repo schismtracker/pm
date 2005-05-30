@@ -1360,11 +1360,11 @@ static void convert_16ss(song_t *song, char *buffer, const int32_t *from, int sa
 	while (samples-- > 0) {
 		if (song->global_volume < 0x80) {
 			s = *from++;
-			s = ((long)s * song->global_volume) >> 6;
+			s = ((long)s * song->global_volume) >> 7;
 			*to++ = CLAMP(s, -32768, 32767);
 
 			s = *from++;
-			s = ((long)s * song->global_volume) >> 6;
+			s = ((long)s * song->global_volume) >> 7;
 			*to++ = CLAMP(s, -32768, 32767);
 		} else {
 			s = *from++; *to++ = CLAMP(s, -32768, 32767);
