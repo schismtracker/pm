@@ -65,6 +65,10 @@ static song_t *_song_free(song_t *song)
 			free(song->patterns[n]);
 		}
 	}
+	if (song->message) {
+		free(song->message);
+		song->message = 0;
+	}
 
 	return song;
 }

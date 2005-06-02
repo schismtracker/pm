@@ -1017,18 +1017,6 @@ int increment_row(song_t *song)
 	return 1;
 }
 
-static void envelope_end(instrument_t *inst, voice_t *voice, int noff)
-{
-	if (noff && voice) {
-		if (inst->fadeout) {
-			voice->fadeout = inst->fadeout << FADEOUT_MULTIPLIER;
-		} else {
-			voice_stop(voice);
-		}
-		voice->noteon = 0;
-	}
-/*TODO*/
-}
 static int envelope_value(int value, envelope_memory_t *m, int scale)
 {
 	value *= (m->y);
@@ -1043,6 +1031,19 @@ static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
 	int adx, ady;
 
 	if (m->ticks == 0) {
+		if (m->node >= env->nodes) {
+			m->node = env->nodes;
+			if (noff && voice) {
+				if (inst->fadeout) {
+					voice->fadeout = inst->fadeout << FADEOUT_MULTIPLIER;
+				} else {
+					voice_stop(voice);
+				}
+				voice->noteon = 0;
+			}
+			return envelope_value(value,m,scale);
+		}
+
 		nn = m->node + 1;
 
 		/* TODO (someday) pingpong env */
@@ -1086,11 +1087,6 @@ static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
 			m->ratex = m->ratey = 1;
 		}
 
-		if (m->node >= env->nodes) {
-			m->node = env->nodes;
-			envelope_end(inst, voice, noff);
-			return envelope_value(value,m,scale);
-		}
 
 	}
 	value = envelope_value(value,m,scale);
@@ -1252,7 +1248,7 @@ int process_xxxrato(song_t *song, int scale, int x, const int *table, int speed,
 		x += n;
 	}
 	(*pos) = ((*pos) + speed) & 255;
-	if (rate) (*depth) = ((*depth) + rate) & 255;
+	if (0 && rate) (*depth) = ((*depth) + rate) & 255;
 	return x;
 }
 
