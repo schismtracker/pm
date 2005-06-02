@@ -37,7 +37,6 @@ int fmt_mtm_load(song_t *song, FILE *fp)
         if (memcmp(b, "MTM", 3))
                 return LOAD_UNSUPPORTED;
 
-	memset(song, 0, sizeof(song_t));
         fgetc(fp);      /* version (don't care) */
 
         fread(song->title, 1, 20, fp);
@@ -159,7 +158,6 @@ int fmt_mtm_load(song_t *song, FILE *fp)
         song->flags = (SONG_OLD_EFFECTS | SONG_COMPAT_GXX | SONG_STEREO);
 
 	if (ferror(fp)) {
-		song_free(song);
 		return LOAD_FILE_ERROR;
 	}
 

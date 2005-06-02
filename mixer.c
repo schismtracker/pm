@@ -153,6 +153,7 @@ every voice or keeping a global, and those are both bogus. */
 void voice_apply_frequency(song_t *song, voice_t *voice, int frequency)
 {
 	voice->frequency = frequency;
+	if (!song->mixing_rate) return;
 	voice->inc = (frequency << FRACBITS) / song->mixing_rate;
 }
 

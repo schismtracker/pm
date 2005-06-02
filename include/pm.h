@@ -124,11 +124,13 @@ enum {
 	//SONG_INTERPOLATE = 0x0100,
 	SONG_NO_SURROUND = 0x0200, /* treat S91 as a center pan instead */
 	SONG_LOOP = 0x0400, /* if this is off, song_read() will return 0 at the end of the song */
+	SONG_MUTED = 0x1000, /* set, and no sound is being played */
 };
 
 /* channel flags */
 enum {
 	CHAN_MUTE = 0x0001,
+	CHAN_MUTE_SOLO = 0x0010, /* muted because of solo; will be |0x01 */
 	/* internal flags follow */
 	CHAN_FINE_SLIDE = 0x0004,
 };
@@ -217,6 +219,7 @@ typedef struct note {
 } note_t;
 
 typedef struct pattern {
+	int alloc_rows;
 	int rows;
 	note_t *data;
 } pattern_t;
@@ -414,6 +417,10 @@ typedef struct song {
 	uint8_t orderlist[MAX_ORDERS];
 	pattern_t *patterns[MAX_PATTERNS];
 
+	/* statistic */
+	unsigned long avg_rpm;
+	unsigned long total_rows_played;
+
 	/* song message; null for empty; allocated by loader */
 	char *message;
 } song_t;
@@ -526,8 +533,12 @@ int process_tick(song_t *song);
 /* --------------------------------------------------------------------------------------------------------- */
 /* mixing and output */
 
-/* return: number of bytes actually written to the output buffer. zero indicates end of song. */
-int song_read(song_t *song, char *buffer, int buffer_size);
+/* return: number of bytes actually written to the output buffer. zero indicates end of song. tt is optional method of getting the time-thus far.
+
+buffer==0 keeps going until end of song
+ */
+
+int song_read(song_t *song, char *buffer, int buffer_size, unsigned long *tt);
 
 /* --------------------------------------------------------------------------------------------------------- */
 /* file loading */

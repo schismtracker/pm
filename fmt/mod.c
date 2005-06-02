@@ -53,8 +53,6 @@ int fmt_mod_load(song_t *song, FILE *fp)
 		return LOAD_FORMAT_ERROR;
 	}
 
-	memset(song, 0, sizeof(song_t));
-	
 	/* read the title */
 	rewind(fp);
 	fread(song->title, 1, 20, fp);
@@ -185,7 +183,6 @@ int fmt_mod_load(song_t *song, FILE *fp)
 	song->pan_separation = 64;
 
 	if (ferror(fp)) {
-		song_free(song);
 		return LOAD_FILE_ERROR;
 	}
 	

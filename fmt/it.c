@@ -174,8 +174,6 @@ int fmt_it_load(song_t *song, FILE *fp)
 		return LOAD_FORMAT_ERROR;
 	}
 	
-	memset(song, 0, sizeof(song_t));
-
 	fread(song->orderlist, 1, hdr.ordnum, fp);
 	
 	fread(para_ins, 4, hdr.insnum, fp);
@@ -356,7 +354,6 @@ int fmt_it_load(song_t *song, FILE *fp)
 	}
 
 	if (ferror(fp)) {
-		song_free(song);
 		return LOAD_FILE_ERROR;
 	}
 

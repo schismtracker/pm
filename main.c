@@ -136,8 +136,11 @@ void print_row(song_t *song)
 
 void dump_general(song_t *song)
 {
+	unsigned long sec;
+	song_read(song, 0, 0, &sec);
 	printf("Song information:\n");
 	printf("\tTitle: \"%s\"\n", song->title);
+	printf("\tESTIMATED time: %lu\n", sec);
 	printf("\tTempo=%d Speed=%d GV=%d MV=%d PanSep=%d Highlight=%d/%d\n",
 	       song->initial_tempo, song->initial_speed, song->initial_global_volume, song->master_volume,
 	       song->pan_separation, song->highlight_minor, song->highlight_major);
@@ -314,7 +317,7 @@ int main(int argc, char **argv)
 		dev = ao_open_live(ao_driver_id("oss"), &fmt, NULL);
 		//dev = ao_open_file(ao_driver_id("au"), "output.au", 1, &fmt, NULL);
 
-		while ((r = song_read(song, buf, sizeof(buf))) != 0)
+		while ((r = song_read(song, buf, sizeof(buf), 0)) != 0)
 			ao_play(dev, buf, r);
 		ao_close(dev);
 	}

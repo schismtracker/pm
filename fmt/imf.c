@@ -42,7 +42,6 @@ static void load_imf_pattern(song_t *song, int pat, uint32_t ignore_channels, FI
 	note_t *row_data, *note, junk_note;
 	
 	startpos = ftell(fp);
-	memset(song, 0, sizeof(song_t));
 	
 	fread(&length, 2, 1, fp);
 	length = bswapLE16(length);

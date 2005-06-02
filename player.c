@@ -24,6 +24,8 @@ void song_reset_play_state(song_t *song)
 {
 	int n;
 
+	song->total_rows_played = 0;
+	song->avg_rpm = 0;
 	song->tempo = song->initial_tempo;
 	song->global_volume = song->initial_global_volume;
 	song->speed = song->initial_speed;
@@ -1257,6 +1259,7 @@ int process_tick(song_t *song)
 {
 	/* [Bracketed comments] are straight from the processing flowchart in ittech.txt. */
 	
+	unsigned int rpm;
 	int n, is_tick0 = 0;
 	channel_t *channel;
 	note_t *note;
@@ -1293,7 +1296,8 @@ int process_tick(song_t *song)
 			/* This should only happen on the console, not in a tracker / GUI player / whatever.
 			Theoretically, the player shouldn't print anything (as it's essentially a library)
 			and this function would be best handled as a callback. */
-			print_row(song);
+			if (!(song->flags & SONG_MUTED)) 
+				print_row(song);
 			
 			is_tick0 = 1;
 		} /* else: [-- No -- Call update-effects for each channel.] */
@@ -1322,6 +1326,16 @@ int process_tick(song_t *song)
 			}
 			process_channel_tick(song, channel, note);
 		}
+
+		rpm = song->speed * song->tempo * 24;
+		if (!song->avg_rpm) {
+			song->avg_rpm = rpm;
+		} else {
+			song->avg_rpm += rpm;
+			song->avg_rpm >>= 2;
+		}
+		song->total_rows_played++;
+
 	} else {
 		for (n = 0, note = song->row_data, channel = song->channels;
 		     n < MAX_CHANNELS; n++, channel++, note++) {
@@ -1373,7 +1387,12 @@ static void convert_16ss(song_t *song, char *buffer, const int32_t *from, int sa
 	}
 }
 
-int song_read(song_t *song, char *buffer, int buffer_size)
+static unsigned long song_seconds(song_t *song)
+{
+	return song->total_rows_played / (song->avg_rpm / 600);
+}
+
+int song_read(song_t *song, char *buffer, int buffer_size, unsigned long *tx)
 {
 	/* Using the stack for the buffer is faster than allocating a pointer in the song_t structure. */
 	int32_t mixing_buffer[2 * MIXING_BUFFER_SIZE]; /* 2x = enough room to handle stereo */
@@ -1382,6 +1401,30 @@ int song_read(song_t *song, char *buffer, int buffer_size)
 	int bytes_left = buffer_size;
 	int n, samples_to_mix;
 	voice_t *voice;
+
+	if (!buffer) {
+		int flagson = 0;
+		int flagsoff = 0;
+
+		if (song->flags & SONG_LOOP) {
+			flagson |= SONG_LOOP;
+			song->flags &= ~SONG_LOOP;
+		}
+		if (!(song->flags & SONG_MUTED)) {
+			flagsoff |= SONG_MUTED;
+		}
+		song->flags |= SONG_MUTED;
+		if (tx) {
+			while (process_tick(song));
+			(*tx) = (song_seconds(song));
+		}
+
+		song->total_rows_played = 0;
+		song->avg_rpm = 0;
+		song->flags |= flagson;
+		song->flags &= ~flagsoff;
+		return 0;
+	}
 	
 	while (buffer_left) {
 		/* at the start of a tick? */
@@ -1419,6 +1462,10 @@ int song_read(song_t *song, char *buffer, int buffer_size)
 		buffer_left -= samples_to_mix;
 		bytes_left -= samples_to_mix * bytes_per_sample;
 		buffer += samples_to_mix * bytes_per_sample;
+	}
+	if (tx) {
+		/* adjust play/time estimate */
+		(*tx) = (song_seconds(song));
 	}
 	return buffer_size - bytes_left;
 }

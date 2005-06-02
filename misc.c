@@ -153,7 +153,7 @@ pattern_t *pattern_allocate(int rows)
 	
 	pattern = malloc(sizeof(pattern_t));
 	pattern->data = calloc(MAX_CHANNELS * rows, sizeof(note_t));
-	pattern->rows = rows;
+	pattern->alloc_rows = pattern->rows = rows;
 	
 	for (n = MAX_CHANNELS * rows, note = pattern->data; n; n--, note++) {
 		note->note = NOTE_NONE;
