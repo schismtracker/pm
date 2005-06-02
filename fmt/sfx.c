@@ -20,6 +20,8 @@ int fmt_sfx_load(song_t *song, FILE *fp)
 	if (memcmp(tag, "SONG", 4) != 0)
 		return LOAD_UNSUPPORTED;
 
+	memset(song, 0, sizeof(song_t));
+
 	rewind(fp);
 	
 	fread(smpsize, 4, 15, fp);
@@ -132,6 +134,11 @@ int fmt_sfx_load(song_t *song, FILE *fp)
 	
 	song->pan_separation = 64;
 	
+	if (ferror(fp)) {
+		song_free(song);
+		return LOAD_FILE_ERROR;
+	}
+
 	/* done! */
 	return LOAD_SUCCESS;
 }

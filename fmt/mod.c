@@ -11,7 +11,7 @@ int fmt_mod_load(song_t *song, FILE *fp)
 	int startrekker = 0;
 	int test_wow = 0;
 	long samplesize = 0;
-	
+
 	/* check the tag (and set the number of channels) -- this is ugly, so don't look */
 	fseek(fp, 1080, SEEK_SET);
 	fread(tag, 1, 4, fp);
@@ -52,6 +52,8 @@ int fmt_mod_load(song_t *song, FILE *fp)
 		//fprintf(stderr, "%s: Too many channels!\n", filename);
 		return LOAD_FORMAT_ERROR;
 	}
+
+	memset(song, 0, sizeof(song_t));
 	
 	/* read the title */
 	rewind(fp);
@@ -181,6 +183,11 @@ int fmt_mod_load(song_t *song, FILE *fp)
 		song->channels[n].flags = CHAN_MUTE;
 	
 	song->pan_separation = 64;
+
+	if (ferror(fp)) {
+		song_free(song);
+		return LOAD_FILE_ERROR;
+	}
 	
 	/* done! */
 	return LOAD_SUCCESS;

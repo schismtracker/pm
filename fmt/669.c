@@ -16,6 +16,8 @@ int fmt_669_load(song_t *song, FILE *fp)
         if (tmp != bswapLE16(0x6669) && tmp != bswapLE16(0x4e4a))
                 return LOAD_UNSUPPORTED;
 	
+	memset(song, 0, sizeof(song_t));
+
         /* The message is 108 bytes, split onto 3 lines of 36 bytes each.
 	I'm just reading the first 25 bytes as the title and throwing out the rest... */
         fread(song->title, 1, 25, fp);
@@ -219,6 +221,10 @@ int fmt_669_load(song_t *song, FILE *fp)
                 song->channels[n].flags = CHAN_MUTE;
 	
 	TODO("linear slides");
+	if (ferror(fp)) {
+		song_free(song);
+		return LOAD_FILE_ERROR;
+	}
 	
         /* done! */
         return LOAD_SUCCESS;

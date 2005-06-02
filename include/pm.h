@@ -413,6 +413,9 @@ typedef struct song {
 	voice_t voices[MAX_VOICES];
 	uint8_t orderlist[MAX_ORDERS];
 	pattern_t *patterns[MAX_PATTERNS];
+
+	/* song message; null for empty; allocated by loader */
+	char *message;
 } song_t;
 
 /* --------------------------------------------------------------------------------------------------------- */

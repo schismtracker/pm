@@ -27,6 +27,8 @@ int fmt_s3m_load(song_t *song, FILE *fp)
 	if (memcmp(b, "SCRM", 4) != 0)
 		return LOAD_UNSUPPORTED;
 
+	memset(song, 0, sizeof(song_t));
+
 	/* read the title */
 	rewind(fp);
 	fread(song->title, 1, 25, fp);
@@ -245,6 +247,10 @@ int fmt_s3m_load(song_t *song, FILE *fp)
 		}
 	}
 	
+	if (ferror(fp)) {
+		song_free(song);
+		return LOAD_FILE_ERROR;
+	}
 	/* done! */
 	return LOAD_SUCCESS;
 }

@@ -157,6 +157,7 @@ int fmt_it_load(song_t *song, FILE *fp)
 {
 	struct it_header hdr;
 	uint32_t para_smp[99], para_ins[99], para_pat[256];
+	char *tmp;
 	int n, pos;
 	channel_t *channel;
 	sample_t *sample;
@@ -173,6 +174,8 @@ int fmt_it_load(song_t *song, FILE *fp)
 		return LOAD_FORMAT_ERROR;
 	}
 	
+	memset(song, 0, sizeof(song_t));
+
 	fread(song->orderlist, 1, hdr.ordnum, fp);
 	
 	fread(para_ins, 4, hdr.insnum, fp);
@@ -194,8 +197,14 @@ int fmt_it_load(song_t *song, FILE *fp)
 	if (hdr.flags & 32)
 		song->flags |= SONG_COMPAT_GXX;
 	
-	if (hdr.special & 1)
-		TODO("read song message");
+	if (hdr.special & 1) {
+		fseek(fp, hdr.msg_offset, SEEK_SET);
+		tmp = (char *)malloc(hdr.msg_length);
+		if (tmp) {
+			if (fread(tmp, hdr.msg_offset, 1, fp) == 1)
+				song->message = tmp;
+		}
+	}
 	
 	memcpy(song->title, hdr.title, 25);
 	//unnull(song->title, 25);
@@ -344,6 +353,11 @@ int fmt_it_load(song_t *song, FILE *fp)
 		if (len != tmp)
 			printf("Warning: pattern %d: size mismatch (expected %d bytes, got %d bytes)\n",
 			       n, len, tmp);
+	}
+
+	if (ferror(fp)) {
+		song_free(song);
+		return LOAD_FILE_ERROR;
 	}
 
 	return LOAD_SUCCESS;
