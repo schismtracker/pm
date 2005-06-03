@@ -219,9 +219,9 @@ typedef struct note {
 } note_t;
 
 typedef struct pattern {
-	int alloc_rows;
 	int rows;
 	note_t *data;
+	int alloc_rows;
 } pattern_t;
 
 /* dunno where to put this; it really doesn't fit here */
