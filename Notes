@@ -1,3 +1,16 @@
+song_play_note() should be builtin- rather; should have roots in pm, not in
+pmlink
+	enum song_mode song_get_mode()
+
+unsigned long song_get_current_time()
+	this guy is smart:
+		samples_played / mp->gdwMixingFreq;
+	i'm a retard
+
+void cfg_load_audio(cfg_file_t *cfg)
+void cfg_atexit_save_audio(cfg_file_t *cfg)
+void cfg_save_audio(cfg_file_t *cfg)
+		
 
 volume swing, 
 pitch/pan center, separation

@@ -418,6 +418,131 @@ void song_remove_instrument_slot(UNUSED int n)
 {
 /*TODO*/
 }
+void song_loop_pattern(UNUSED int pattern, UNUSED int row)
+{
+/*TODO*/
+}
+void song_start_at_order(UNUSED int order, UNUSED int row)
+{
+/*TODO*/
+}
+void song_start(void)
+{
+/*TODO*/
+}
+void song_stop(void)
+{
+/*TODO*/
+}
+void song_start_at_pattern(UNUSED int pattern, UNUSED int row)
+{
+/*TODO*/
+}
+void song_single_step(UNUSED int pattern, UNUSED int row)
+{
+/*TODO (like 8 key) */
+}
+int song_get_current_speed(void)
+{
+/*TODO*/
+return 0;
+}
+int song_get_current_tempo(void)
+{
+/*TODO*/
+return 0;
+}
+int song_get_current_global_volume(void)
+{
+/*TODO*/
+return 0;
+}
+int song_get_current_order(void)
+{
+/*TODO*/
+return 0;
+}
+int song_get_playing_pattern(void)
+{
+/*TODO*/
+return 0;
+}
+int song_get_current_row(void)
+{
+/*TODO*/
+return 0;
+}
+int song_get_playing_channels(void)
+{
+/*TODO*/
+return 0;
+}
+int song_get_max_channels(void)
+{
+/*TODO*/
+return 0;
+}
+void song_get_vu_meter(UNUSED int *left, UNUSED int *right)
+{
+/*TODO*/
+}
+void song_get_playing_samples(UNUSED int samples[])
+{
+/*TODO*/
+}
+void song_get_playing_instruments(UNUSED int instruments[])
+{
+/*TODO*/
+}
+void song_set_current_speed(UNUSED int speed)
+{
+/*TODO*/
+}
+void song_set_current_global_volume(UNUSED int volume)
+{
+/*TODO*/
+}
+void song_set_current_order(UNUSED int order)
+{
+/*TODO*/
+}
+void song_set_next_order(UNUSED int order)
+{
+/*TODO*/
+}
+int song_toggle_orderlist_locked(void)
+{
+/*TODO*/
+return 0;
+}
+void song_flip_stereo(void)
+{
+/*TODO*/
+}
+int song_get_surround(void)
+{
+/*TODO*/
+return 0;
+}
+void song_set_surround(UNUSED int on)
+{
+/*TODO*/
+}
+void song_init_audio(void)
+{
+/*TODO*/
+}
+void song_init_modplug(void)
+{
+/*TODO*/
+}
+void song_initialise(void)
+{
+/*TODO*/
+}
+
+
+
 
 
 
