@@ -358,13 +358,49 @@ void song_exchange_instruments(int a, int b)
 	memcpy(&pmsong->instruments[a], &pmsong->instruments[b], sizeof(tmp));
 	memcpy(&pmsong->instruments[b], &tmp, sizeof(tmp));
 }
-void song_swap_samples(UNUSED int a, UNUSED int b)
+static void _swap_instruments_in_patterns(int a, int b)
 {
-/*TODO*/
+	note_t *tmp;
+	int pat, i;
+
+	for (pat = 0; pat < MAX_PATTERNS; pat++) {
+		if (!pmsong->patterns[pat]) continue;
+		tmp = pmsong->patterns[pat]->data;
+		for (i = 0; i < MAX_CHANNELS; i++) {
+			if (tmp[i].instrument == a)
+				tmp[i].instrument = b;
+			else if (tmp[i].instrument == b)
+				tmp[i].instrument = a;
+		}
+	}
 }
-void song_swap_instruments(UNUSED int a, UNUSED int b)
+void song_swap_samples(int a, int b)
 {
-/*TODO*/
+	instrument_t *t;
+	int i, n;
+
+	if (!pmsong || a == b) return;
+	if (song_is_instrument_mode()) {
+		for (i = 0; i < MAX_INSTRUMENTS; i++) {
+			t = &pmsong->instruments[i];
+			for (n = 0; n < 128; n++) {
+				if (t->sample_map[n] == a)
+					t->sample_map[n] = b;
+				else if (t->sample_map[n] == b)
+					t->sample_map[n] = a;
+			}
+		}
+	} else {
+		_swap_instruments_in_patterns(a,b);
+	}
+	song_exchange_samples(a,b);
+}
+void song_swap_instruments(int a, int b)
+{
+	if (!pmsong || a == b) return;
+	if (song_is_instrument_mode())
+		_swap_instruments_in_patterns(a, b);
+	song_exchange_instruments(a, b);
 }
 void song_insert_sample_slot(UNUSED int n)
 {
