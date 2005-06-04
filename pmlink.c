@@ -19,6 +19,81 @@ typedef voice_t song_mix_channel;
 typedef note_t song_note;
 
 static song_t *pmsong = 0;
+static int playing = 0;
+
+void song_init_audio(void)
+{
+/*TODO*/
+}
+void song_init_modplug(void)
+{
+/*TODO*/
+}
+void song_initialise(void)
+{
+/*TODO*/
+}
+
+
+
+
+
+
+
+void song_get_vu_meter(UNUSED int *left, UNUSED int *right)
+{
+/*TODO*/
+}
+void song_stop(void)
+{
+/* TODO:silence */
+	playing = 0;
+	if (pmsong) song_reset_play_state(pmsong);
+}
+void song_loop_pattern(int pattern, int row)
+{
+	song_stop();
+	if (!pmsong) return;
+
+	pmsong->flags |= SONG_LOOP_PATTERN|SONG_LOOP;
+	song_set_pattern(pmsong, pattern, row);
+}
+void song_start_at_order(int order, int row)
+{
+	song_stop();
+	if (!pmsong) return;
+
+	pmsong->flags &= ~SONG_LOOP_PATTERN;
+	pmsong->flags |= SONG_LOOP;
+	song_set_order(pmsong, order, row);
+}
+void song_start(void)
+{
+	song_stop();
+	if (!pmsong) return;
+	pmsong->flags &= ~SONG_LOOP_PATTERN;
+	pmsong->flags |= SONG_LOOP;
+	playing = 1;
+}
+void song_start_at_pattern(int pattern, int row)
+{
+	song_stop();
+	if (!pmsong) return;
+
+	pmsong->flags &= ~SONG_LOOP_PATTERN;
+	pmsong->flags |= SONG_LOOP;
+	song_set_pattern(pmsong, pattern, row);
+	playing = 1;
+}
+void song_single_step(int pattern, int row)
+{
+	if (!pmsong) return;
+	pmsong->flags &= ~SONG_LOOP_PATTERN;
+	pmsong->flags |= SONG_LOOP;
+	song_set_pattern(pmsong, pattern, row);
+	pmsong->flags |= SONG_SINGLE_STEP;
+	playing = 1;
+}
 
 char *song_get_title(void)
 {
@@ -45,6 +120,12 @@ signed char *song_sample_allocate(int bytes)
 void song_sample_free(signed char *data)
 {
 	free(data);
+}
+
+unsigned long song_get_current_time(void)
+{
+	if (!pmsong) return 0;
+	return song_seconds(pmsong);
 }
 
 song_sample *song_get_sample(int n, char **name_ptr)
@@ -317,6 +398,7 @@ int song_is_instrument_mode(void)
 void song_set_instrument_mode(int value)
 {
 	if (pmsong) {
+		song_stop();
 		if (value)
 			pmsong->flags |= SONG_INSTRUMENT_MODE;
 		else
@@ -343,6 +425,7 @@ void song_exchange_samples(int a, int b)
 {
 	sample_t tmp;
 
+	song_stop();
 	if (!pmsong || a == b) return;
 	memcpy(&tmp, &pmsong->samples[a], sizeof(tmp));
 	memcpy(&pmsong->samples[a], &pmsong->samples[b], sizeof(tmp));
@@ -353,16 +436,49 @@ void song_exchange_samples(int a, int b)
 void song_exchange_instruments(int a, int b)
 {
 	instrument_t tmp;
+	song_stop();
 	if (!pmsong || a == b) return;
 	memcpy(&tmp, &pmsong->instruments[a], sizeof(tmp));
 	memcpy(&pmsong->instruments[a], &pmsong->instruments[b], sizeof(tmp));
 	memcpy(&pmsong->instruments[b], &tmp, sizeof(tmp));
+}
+static void _delta_instruments_in_patterns(int start, int delta)
+{
+	note_t *tmp;
+	int pat, i;
+
+	for (pat = 0; pat < MAX_PATTERNS; pat++) {
+		if (!pmsong->patterns[pat]) continue;
+		tmp = pmsong->patterns[pat]->data;
+		for (i = 0; i < MAX_CHANNELS; i++) {
+			if (tmp[i].instrument >= start) {
+				tmp[i].instrument = CLAMP(tmp[i].instrument
+						+ delta, 0, MAX_SAMPLES-1);
+			}
+		}
+	}
+}
+static void _delta_samples_in_instruments(int start, int delta)
+{
+	instrument_t *t;
+	int i, n;
+
+	for (i = 0; i < MAX_INSTRUMENTS; i++) {
+		t = &pmsong->instruments[i];
+		for (n = 0; n < 128; n++) {
+			if (t->sample_map[n] >= start) {
+				t->sample_map[n] = CLAMP(t->sample_map[n]
+						+ delta, 0, MAX_SAMPLES-1);
+			}
+		}
+	}
 }
 static void _swap_instruments_in_patterns(int a, int b)
 {
 	note_t *tmp;
 	int pat, i;
 
+	song_stop();
 	for (pat = 0; pat < MAX_PATTERNS; pat++) {
 		if (!pmsong->patterns[pat]) continue;
 		tmp = pmsong->patterns[pat]->data;
@@ -379,6 +495,7 @@ void song_swap_samples(int a, int b)
 	instrument_t *t;
 	int i, n;
 
+	song_stop();
 	if (!pmsong || a == b) return;
 	if (song_is_instrument_mode()) {
 		for (i = 0; i < MAX_INSTRUMENTS; i++) {
@@ -397,94 +514,92 @@ void song_swap_samples(int a, int b)
 }
 void song_swap_instruments(int a, int b)
 {
+	song_stop();
 	if (!pmsong || a == b) return;
 	if (song_is_instrument_mode())
 		_swap_instruments_in_patterns(a, b);
 	song_exchange_instruments(a, b);
 }
-void song_insert_sample_slot(UNUSED int n)
+void song_insert_sample_slot(int n)
 {
-/*TODO*/
+	song_stop();
+	if (!pmsong) return;
+	if (pmsong->samples[MAX_SAMPLES-1].data) return;
+	memmove(pmsong->samples+n+1, pmsong->samples+n,
+			(MAX_SAMPLES-n-1)*sizeof(sample_t));
+	memset(pmsong->samples+n, 0, sizeof(sample_t));
+	if (song_is_instrument_mode()) {
+		_delta_samples_in_instruments(n,1);
+	} else {
+		_delta_instruments_in_patterns(n,1);
+	}
 }
-void song_remove_sample_slot(UNUSED int n)
+void song_remove_sample_slot(int n)
 {
-/*TODO*/
+	song_stop();
+	if (!pmsong) return;
+	if (pmsong->samples[n].data) return;
+	memmove(pmsong->samples+n, pmsong->samples+n+1,
+			(MAX_SAMPLES-n-1)*sizeof(sample_t));
+	memset(pmsong->samples+(MAX_SAMPLES-1), 0, sizeof(sample_t));
+	if (song_is_instrument_mode()) {
+		_delta_samples_in_instruments(n,-1);
+	} else {
+		_delta_instruments_in_patterns(n,-1);
+	}
 }
-void song_insert_instrument_slot(UNUSED int n)
+void song_insert_instrument_slot(int n)
 {
-/*TODO*/
+	song_stop();
+	if (!pmsong) return;
+	if (pmsong->instruments[MAX_INSTRUMENTS-1].flags & INST_INUSE) return;
+	memmove(pmsong->instruments+n+1, pmsong->instruments+n,
+			(MAX_INSTRUMENTS-n-1)*sizeof(instrument_t));
+	memset(pmsong->instruments+n, 0, sizeof(instrument_t));
+	_delta_instruments_in_patterns(n,1);
 }
-void song_remove_instrument_slot(UNUSED int n)
+void song_remove_instrument_slot(int n)
 {
-/*TODO*/
-}
-void song_loop_pattern(UNUSED int pattern, UNUSED int row)
-{
-/*TODO*/
-}
-void song_start_at_order(UNUSED int order, UNUSED int row)
-{
-/*TODO*/
-}
-void song_start(void)
-{
-/*TODO*/
-}
-void song_stop(void)
-{
-/*TODO*/
-}
-void song_start_at_pattern(UNUSED int pattern, UNUSED int row)
-{
-/*TODO*/
-}
-void song_single_step(UNUSED int pattern, UNUSED int row)
-{
-/*TODO (like 8 key) */
+	song_stop();
+	if (!pmsong) return;
+	if (pmsong->instruments[n].flags & INST_INUSE) return;
+	memmove(pmsong->instruments+n, pmsong->instruments+n+1,
+			(MAX_INSTRUMENTS-n-1)*sizeof(instrument_t));
+	memset(pmsong->instruments+(MAX_INSTRUMENTS-1),
+						0, sizeof(instrument_t));
+	_delta_instruments_in_patterns(n,-1);
 }
 int song_get_current_speed(void)
 {
-/*TODO*/
-return 0;
+	return pmsong ? pmsong->speed : 0;
 }
 int song_get_current_tempo(void)
 {
-/*TODO*/
-return 0;
+	return pmsong ? pmsong->tempo : 0;
 }
 int song_get_current_global_volume(void)
 {
-/*TODO*/
-return 0;
+	return pmsong ? pmsong->global_volume : 0;
 }
 int song_get_current_order(void)
 {
-/*TODO*/
-return 0;
+	return pmsong ? pmsong->process_order : -1;
 }
 int song_get_playing_pattern(void)
 {
-/*TODO*/
-return 0;
+	return pmsong ? pmsong->cur_pattern : -1;
 }
 int song_get_current_row(void)
 {
-/*TODO*/
-return 0;
+	return pmsong ? pmsong->process_row : 0;
 }
 int song_get_playing_channels(void)
 {
-/*TODO*/
-return 0;
+	return pmsong ? pmsong->num_voices : 0;
 }
 int song_get_max_channels(void)
 {
-/*TODO*/
-return 0;
-}
-void song_get_vu_meter(UNUSED int *left, UNUSED int *right)
-{
-/*TODO*/
+	return pmsong ? pmsong->max_voices : 0;
 }
 void song_get_playing_samples(UNUSED int samples[])
 {
@@ -494,17 +609,19 @@ void song_get_playing_instruments(UNUSED int instruments[])
 {
 /*TODO*/
 }
-void song_set_current_speed(UNUSED int speed)
+void song_set_current_speed(int speed)
 {
-/*TODO*/
+	if (!pmsong || speed < 1 || speed > 255) return;
+	pmsong->speed = speed;
 }
-void song_set_current_global_volume(UNUSED int volume)
+void song_set_current_global_volume(int volume)
 {
-/*TODO*/
+	if (!pmsong || volume < 0 || volume > 128) return;
+	pmsong->global_volume = volume;
 }
-void song_set_current_order(UNUSED int order)
+void song_set_current_order(int order)
 {
-/*TODO*/
+	if (pmsong) song_set_order(pmsong, order, 0);
 }
 void song_set_next_order(UNUSED int order)
 {
@@ -517,32 +634,17 @@ return 0;
 }
 void song_flip_stereo(void)
 {
-/*TODO*/
+	if (pmsong) pmsong->flags ^= SONG_REVERSE_STEREO;
 }
 int song_get_surround(void)
 {
-/*TODO*/
-return 0;
+	return pmsong ? !(pmsong->flags & SONG_NO_SURROUND) : 1;
 }
-void song_set_surround(UNUSED int on)
+void song_set_surround(int on)
 {
-/*TODO*/
+	if (!pmsong) return;
+	if (on)
+		pmsong->flags &= ~SONG_NO_SURROUND;
+	else
+		pmsong->flags |= SONG_NO_SURROUND;
 }
-void song_init_audio(void)
-{
-/*TODO*/
-}
-void song_init_modplug(void)
-{
-/*TODO*/
-}
-void song_initialise(void)
-{
-/*TODO*/
-}
-
-
-
-
-
-

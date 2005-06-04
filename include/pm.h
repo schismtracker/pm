@@ -114,6 +114,7 @@ enum {
 enum {
 	/* first 8 bits are the same as IT */
 	SONG_STEREO = 0x0001,
+
 	// bit 0x0002 is unused (was vol0opt in IT <1.04)
 	SONG_INSTRUMENT_MODE = 0x0004,
 	SONG_LINEAR_SLIDES = 0x0008,
@@ -122,9 +123,12 @@ enum {
 	
 	/* flags used during mixing and processing */
 	//SONG_INTERPOLATE = 0x0100,
+	SONG_REVERSE_STEREO = 0x0100,
 	SONG_NO_SURROUND = 0x0200, /* treat S91 as a center pan instead */
 	SONG_LOOP = 0x0400, /* if this is off, song_read() will return 0 at the end of the song */
+	SONG_LOOP_PATTERN = 0x0800, /* if true, loops current pattern (req. SONG_LOOP) */
 	SONG_MUTED = 0x1000, /* set, and no sound is being played */
+	SONG_SINGLE_STEP = 0x2000, /* set and stop playing after one row */
 };
 
 /* channel flags */
@@ -187,6 +191,7 @@ enum {
 enum {
 	INST_USE_PANNING = 1,
 	//INST_FILTER = 2, ???
+	INST_INUSE = 0x8000,
 };
 
 /* orders */
@@ -487,6 +492,7 @@ voice_t *voice_find_free(voice_t *voices, int num_voices);
 
 void song_set_tick_timer(song_t *song);
 void song_set_order(song_t *song, int order, int row);
+void song_set_pattern(song_t *song, int pattern, int row);
 void song_reset_play_state(song_t *song);
 
 /* --------------------------------------------------------------------------------------------------------- */
@@ -539,6 +545,9 @@ buffer==0 keeps going until end of song
  */
 
 int song_read(song_t *song, char *buffer, int buffer_size, unsigned long *tt);
+
+/* return current play time in seconds */
+unsigned long song_seconds(song_t *song);
 
 /* --------------------------------------------------------------------------------------------------------- */
 /* file loading */

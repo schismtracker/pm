@@ -19,6 +19,29 @@ void song_set_order(song_t *song, int order, int row)
 	song->row_counter = 1;
 	song_set_tick_timer(song);
 }
+void song_set_pattern(song_t *song, int pattern, int row)
+{
+	pattern_t *pq;
+	int i;
+	/* err... find first entry in order list */
+	for (i = 0; i < MAX_ORDERS; i++) {
+		if (song->orderlist[i] == pattern) {
+			song_set_order(song, i, row);
+			return;
+		}
+	}
+	/* okay, make something up */
+	song->process_row = row;
+	song->process_order = song->cur_order = -1;
+	song->break_row = row;
+	song->tick = 1;
+	song->row_counter = 1;
+	song->cur_pattern = pattern;
+	pq = pattern_get(song, song->cur_pattern);
+	song->pattern_data = pq->data;
+	song->pattern_rows = pq->rows;
+	song_set_tick_timer(song);
+}
 
 void song_reset_play_state(song_t *song)
 {
@@ -604,6 +627,7 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 		break;
 	case 'B': /* pattern jump */
 		/* if song looping is disabled, only change the order if it's beyond the current position */
+		if (song->flags & SONG_LOOP_PATTERN) break;
 		if (song->flags & SONG_LOOP || param > song->cur_order)
 			song->process_order = param - 1;
 		song->process_row = PROCESS_NEXT_ORDER;
@@ -989,10 +1013,15 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 int increment_row(song_t *song)
 {
 	pattern_t *pattern;
-	
+
 	song->process_row = song->break_row; /* [ProcessRow = BreakRow] */
 	song->break_row = 0;                 /* [BreakRow = 0] */
 	song->process_order++;               /* [Increase ProcessOrder] */
+	
+	if (song->flags & SONG_LOOP && song->flags & SONG_LOOP_PATTERN) {
+		/* everything else is same */
+		return 1;
+	}
 	
 	/* [while Order[ProcessOrder] = 0xFEh, increase ProcessOrder] */
 	while (song->orderlist[song->process_order] == ORDER_SKIP)
@@ -1000,10 +1029,10 @@ int increment_row(song_t *song)
 	/* [if Order[ProcessOrder] = 0xFFh, ProcessOrder = 0] (... or just stop playing) */
 	if (song->orderlist[song->process_order] == ORDER_LAST) {
 		if (song->flags & SONG_LOOP) {
-			/* Actually, this will break if the first order is a skip, but I
-			don't care about that yet. (IIRC, Impulse Tracker has a similar
-			bug with weird stuff in the orderlist...) */
 			song->process_order = 0;
+			while (song->orderlist[song->process_order]
+							== ORDER_SKIP)
+				song->process_order++;
 		} else {
 			return 0;
 		}
@@ -1174,6 +1203,9 @@ void handle_voices_final(song_t *song)
 
 		if (voice->fadeout) voice_fade(voice);
 
+		if (song->flags & SONG_NO_SURROUND && pan == PAN_SURROUND)
+			pan = 32;
+
 		voice_apply_volume_panning(voice, vol, pan);
 	}
 }
@@ -1278,7 +1310,16 @@ int process_tick(song_t *song)
 			song->row_counter = 1; /* [Row counter = 1] */
 			
 			/* [Increase ProcessRow. Is ProcessRow > NumberOfRows?] */
-			if (++song->process_row >= song->pattern_rows) {
+			song->process_row++;
+			if (song->flags & SONG_SINGLE_STEP) {
+				if (song->process_row >= song->pattern_rows)
+					song->process_row = song->pattern_rows-1;
+				song->flags &= ~SONG_SINGLE_STEP;
+				return 0;
+			}
+
+			if (song->process_row >= song->pattern_rows) {
+
 				/* [-- Yes --] */
 				if (!increment_row(song))
 					return 0;
@@ -1367,12 +1408,22 @@ int process_tick(song_t *song)
 static void convert_16ss(song_t *song, char *buffer, const int32_t *from, int samples)
 {
 	int16_t *to = (int16_t *) buffer;
-	int32_t s;
+	int32_t s, p;
 	
 	/* while (samples--) results in decl %edi; cmpl $-1, %edi; je; but when
 	explicitly comparing against zero, it just uses testl. go figure. */
 	while (samples-- > 0) {
-		if (song->global_volume < 0x80) {
+		if (song->flags & SONG_REVERSE_STEREO) {
+			s = *from++;
+			s = ((long)s * song->global_volume) >> 7;
+
+			p = *from++;
+			p = ((long)p * song->global_volume) >> 7;
+
+			*to++ = CLAMP(p, -32768, 32767);
+			*to++ = CLAMP(s, -32768, 32767);
+
+		} else if (song->global_volume < 0x80) {
 			s = *from++;
 			s = ((long)s * song->global_volume) >> 7;
 			*to++ = CLAMP(s, -32768, 32767);
@@ -1387,7 +1438,7 @@ static void convert_16ss(song_t *song, char *buffer, const int32_t *from, int sa
 	}
 }
 
-static unsigned long song_seconds(song_t *song)
+unsigned long song_seconds(song_t *song)
 {
 	return song->total_rows_played / (song->avg_rpm / 600);
 }

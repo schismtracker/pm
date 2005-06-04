@@ -252,6 +252,7 @@ int fmt_it_load(song_t *song, FILE *fp)
 		instrument->panning = ihdr.dp & 127;
 		if ((ihdr.dp & 128) == 0)
 			instrument->flags |= INST_USE_PANNING;
+		instrument->flags |= INST_INUSE;
 		instrument->rand_vol_var = ihdr.rv;
 		instrument->rand_pan_var = ihdr.rp;
 		for (pos = 0; pos < 120; pos++) {
