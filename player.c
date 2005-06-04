@@ -758,7 +758,10 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 			break;
 		case 0x9:
 			/* nothing but surround processor */
-			channel_set_panning(channel, PAN_SURROUND);
+			if (song->flags & SONG_NO_SURROUND) 
+				channel_set_panning(channel, 32);
+			else
+				channel_set_panning(channel, PAN_SURROUND);
 			break;
 
 		case 0xa:
@@ -1202,9 +1205,6 @@ void handle_voices_final(song_t *song)
 		}
 
 		if (voice->fadeout) voice_fade(voice);
-
-		if (song->flags & SONG_NO_SURROUND && pan == PAN_SURROUND)
-			pan = 32;
 
 		voice_apply_volume_panning(voice, vol, pan);
 	}
