@@ -185,12 +185,13 @@ enum {
 	IENV_SUSTAIN_LOOP = 4,
 	IENV_LOOP_PINGPONG = 8,
 	IENV_SUSTAIN_PINGPONG = 16,
+	IENV_CARRY = 32,
 };
 
 /* instrument flags */
 enum {
 	INST_USE_PANNING = 1,
-	//INST_FILTER = 2, ???
+	INST_FILTER = 2,
 	INST_INUSE = 0x8000,
 };
 
@@ -278,6 +279,13 @@ typedef struct instrument {
 	uint8_t sample_map[NOTE_LAST + 1]; /* sample_to_play = sample_map[note_in_pattern]; */
 	uint8_t flags; /* INST_ values */
 	envelope_t vol_env, pan_env, pitch_env;
+
+	uint8_t ifc; /* initial_filter_cutoff */
+	uint8_t ifr; /* ... resonance */
+	uint8_t midi_chan, midi_program, midi_bank;
+	
+/* used only when carry */
+	envelope_memory_t mem_pitch_env, mem_vol_env, mem_pan_env;
 } instrument_t;
 
 typedef struct channel channel_t;

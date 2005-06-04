@@ -13,8 +13,7 @@ pan/swing
 pitch swing
 pitch midi (channel,program,banklo,bankhi)
 pitch -> filter envelope
-
-envelope carry
+ifc,ifr
 
 -----
 http://archive.salon.com/tech/feature/1999/04/29/mod_trackers/index.html

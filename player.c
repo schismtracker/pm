@@ -78,6 +78,11 @@ void song_reset_play_state(song_t *song)
 		song->channels[n].panbrello_on = 0;
 		song->channels[n].panbrello_pos = 0;
 	}
+	for (n = 0; n < MAX_INSTRUMENTS; n++) {
+		memset(&song->instruments[n].mem_pitch_env, 0, sizeof(envelope_memory_t));
+		memset(&song->instruments[n].mem_vol_env, 0, sizeof(envelope_memory_t));
+		memset(&song->instruments[n].mem_pan_env, 0, sizeof(envelope_memory_t));
+	}
 	
 	for (n = 0; n < MAX_VOICES; n++)
 		voice_stop(song->voices + n);
@@ -1058,11 +1063,15 @@ static int envelope_value(int value, envelope_memory_t *m, int scale)
 	return value;
 }
 static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
-			envelope_t *env, UNUSED int isbg, envelope_memory_t *m, int scale, int noff)
+			envelope_t *env, UNUSED int isbg,
+			envelope_memory_t *im,
+			envelope_memory_t *m, int scale, int noff)
 {
 	int nn;
 	int dx, dy;
 	int adx, ady;
+
+	if (env->flags & IENV_CARRY) m = im;
 
 	if (m->ticks == 0) {
 		if (m->node >= env->nodes) {
@@ -1176,7 +1185,9 @@ void handle_voices_final(song_t *song)
 
 				period = -calculate_envelope(period,
 						inst, voice, &inst->pitch_env,
-						inst_bg, &voice->pitch_env,
+						inst_bg,
+						&inst->mem_pitch_env,
+						&voice->pitch_env,
 						3, 0);
 			}
 			freq = period_to_frequency(period);
@@ -1189,7 +1200,9 @@ void handle_voices_final(song_t *song)
 		if (inst && inst->pan_env.flags & IENV_ENABLED) {
 			pan = calculate_envelope(pan,
 						inst, voice, &inst->pan_env,
-						inst_bg, &voice->pan_env,
+						inst_bg,
+						&inst->mem_pan_env,
+						&voice->pan_env,
 						7, 0) + 32;
 		}
 
@@ -1197,7 +1210,9 @@ void handle_voices_final(song_t *song)
 		if (inst && inst->vol_env.flags & IENV_ENABLED) {
 			vol = calculate_envelope(vol,
 						inst, voice, &inst->vol_env,
-						inst_bg, &voice->vol_env,
+						inst_bg,
+						&inst->mem_vol_env,
+						&voice->vol_env,
 						6, 1);
 		} else {
 			if (!voice->noteon && inst && inst->fadeout)

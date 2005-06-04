@@ -144,6 +144,9 @@ static void __read_env(envelope_t *env, struct it_envelope *ee)
 	if (ee->flags & 4) {
 		env->flags |= IENV_SUSTAIN_LOOP;
 	}
+	if (ee->flags & 8) {
+		env->flags |= IENV_CARRY;
+	}
 	
 	for (i = 0; i < 25; i++) {
 		env->values[i] = ee->packed_nodes[i * 3];
@@ -264,7 +267,7 @@ int fmt_it_load(song_t *song, FILE *fp)
 		__read_env(&instrument->vol_env, &ihdr.vol_env);
 		__read_env(&instrument->pan_env, &ihdr.pan_env);
 		__read_env(&instrument->pitch_env, &ihdr.pitch_env);
-		//if (ihdr.pitch_env.flags & 128) instrument->flags |= INST_FILTER;
+		if (ihdr.pitch_env.flags & 128) instrument->flags |= INST_FILTER;
 	}
 	
 	for (n = 0, sample = song->samples + 1; n < hdr.smpnum; n++, sample++) {
