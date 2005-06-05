@@ -235,11 +235,13 @@ void channel_set_panning(channel_t *channel, int panning)
 		voice_set_panning(channel->fg_voice, channel->panning);
 }
 
-void channel_set_period(channel_t *channel, int period)
+void channel_set_period(song_t *song, channel_t *channel, int period)
 {
 	channel->period = period;
-	if (channel->fg_voice)
-		voice_set_frequency(channel->fg_voice, period_to_frequency(period));
+	if (channel->fg_voice) {
+		voice_set_frequency(channel->fg_voice,
+			period_to_frequency(song->flags, period, channel->c5speed));
+	}
 }
 
 void channel_link_voice(channel_t *channel, voice_t *voice)
@@ -301,7 +303,7 @@ void process_note(song_t *song, channel_t *channel, note_t *note)
 			return;
 		}
 
-		period = note_to_period(noteval, sample->c5speed);
+		period = note_to_period(song->flags, noteval, sample->c5speed);
 		channel->c5speed = sample->c5speed;
 		channel->realnote = noteval;
 
@@ -329,7 +331,7 @@ void process_note(song_t *song, channel_t *channel, note_t *note)
 			if (voice) {
 				channel_link_voice(channel, voice);
 				voice_start(voice, sample);
-				channel_set_period(channel, period);
+				channel_set_period(song, channel, period);
 			}
 			channel_set_global_volume(channel,
 				sample->global_volume << 1,
@@ -366,28 +368,27 @@ static void fx_channel_volume_slide(channel_t *channel, int amount)
 	amount += channel->channel_volume;
 	channel_set_channel_volume(channel, CLAMP(amount, 0, 64));
 }
+static void fx_tone_slide(song_t *song, channel_t *channel, int g)
+{
+	channel_set_period(song, channel, channel->period + g);
+}
 
-static void fx_tone_portamento(channel_t *channel)
+static void fx_tone_portamento(song_t *song, channel_t *channel)
 {
 	/* logic for this effect borrowed from mikmod */
 	int period = channel->period;
 	int distance = period - channel->target_period;
 	int g = 4 * channel->portamento;
 	
-	if (!distance) {
-		/* stop sliding, dang it :) */
+	/* stop sliding, dang it :) */
+	if (!distance) return;
+	if (abs(distance) < g) {
+		channel_set_period(song, channel, channel->target_period);
 		return;
-	} else if (g > abs(distance)) {
-		/* just set it */
-		period = channel->target_period;
-	} else if (distance > 0) {
-		/* it's too high, so subtract. */
-		period -= g;
-	} else {
-		/* must be too low. add. */
-		period += g;
 	}
-	channel_set_period(channel, period);
+
+	if (distance > 0) g = -g;
+	fx_tone_slide(song, channel, g);
 }
 
 #define SPLIT_PARAM(param, px, py) ({px = param >> 4; py = param & 0xf;})
@@ -427,11 +428,11 @@ static void process_direct_effect_tick0(song_t *song, channel_t *channel,
 		}
 		switch (channel->pitch_slide >> 4) {
 		case 0xe:
-			channel_set_period(channel, channel->period + (channel->pitch_slide & 0xf));
+			fx_tone_slide(song, channel, channel->pitch_slide & 15);
 			channel->flags |= CHAN_FINE_SLIDE;
 			break;
 		case 0xf:
-			channel_set_period(channel, channel->period + 4 * (channel->pitch_slide & 0xf));
+			fx_tone_slide(song, channel, 4 * (channel->pitch_slide & 15));
 			channel->flags |= CHAN_FINE_SLIDE;
 			break;
 		default:
@@ -446,11 +447,11 @@ static void process_direct_effect_tick0(song_t *song, channel_t *channel,
 		}
 		switch (channel->pitch_slide >> 4) {
 		case 0xe:
-			channel_set_period(channel, channel->period - (channel->pitch_slide & 0xf));
+			fx_tone_slide(song, channel, -(channel->pitch_slide & 15));
 			channel->flags |= CHAN_FINE_SLIDE;
 			break;
 		case 0xf:
-			channel_set_period(channel, channel->period - 4 * (channel->pitch_slide & 0xf));
+			fx_tone_slide(song, channel, -4 * (channel->pitch_slide & 15));
 			channel->flags |= CHAN_FINE_SLIDE;
 			break;
 		default:
@@ -645,14 +646,7 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 
 	case 'J': /* arpeggio */
 		SPLIT_PARAM(param, px, py);
-		if (param) {
-			channel->arp_mid = note_to_period(channel->realnote,
-							channel->c5speed);
-			channel->arp_low = note_to_period(channel->realnote
-							+ py, channel->c5speed);
-			channel->arp_high = note_to_period(channel->realnote
-							+ px, channel->c5speed);
-		}
+		if (param) channel->arpmem = param;
 		break;
 	case 'Q':
 		if (param & 0x0F) {
@@ -857,14 +851,14 @@ static void process_direct_effect_tickN(song_t *song, channel_t *channel,
 		break;
 	case 'E':      /* pitch slide down */
 		if (!(channel->flags & CHAN_FINE_SLIDE))
-			channel_set_period(channel, channel->period + 4 * (channel->pitch_slide));
+			fx_tone_slide(song, channel, 4 * channel->pitch_slide);
 		break;
 	case 'F': /* pitch slide up */
 		if (!(channel->flags & CHAN_FINE_SLIDE))
-			channel_set_period(channel, channel->period - 4 * (channel->pitch_slide));
+			fx_tone_slide(song, channel, -4 * channel->pitch_slide);
 		break;
 	case 'G': /* pitch slide to note */
-		fx_tone_portamento(channel);
+		fx_tone_portamento(song, channel);
 		break;
 	case 'P': /* panning slide */
 		SPLIT_PARAM(channel->panning_slide, px, py);
@@ -932,7 +926,26 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 	
 	/* hm. probably shouldn't be using note->param on tickN, especially
 	for effects that remember their parameters */
+	int rnnote;
 	int effect = note->effect, px, py;
+
+	/* do arp first; it affects period */
+	if (effect == 'J') {
+		switch ((song->speed - song->tick) % 3) {
+		case 0:
+			rnnote = channel->realnote;
+			break;
+		case 1:
+			rnnote = channel->realnote + (channel->arpmem >> 4);
+			break;
+		case 2:
+			rnnote = channel->realnote + (channel->arpmem & 15);
+			break;
+		};
+		channel_set_period(song, channel, note_to_period(song->flags,
+							rnnote,
+							channel->c5speed));
+	}
 	
 	/* volume column */
 	process_volume_tickN(song, channel, note);
@@ -942,7 +955,7 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 	case 0:
 		break;
 	case 'L': /* vol slide + continue pitch slide */
-		fx_tone_portamento(channel);
+		fx_tone_portamento(song, channel);
 		/* fall through */
 	case 'D': /* volume slide */
 	case 'K': /* vol slide + continue vibrato */
@@ -973,7 +986,7 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 		process_direct_effect_tickN(song, channel, effect);
 		break;
 	case 'J': /* arpeggio */
-		/* handled elsewhere */
+		/* handled above */
 		break;
 	case 'N': /* channel volume slide */
 		SPLIT_PARAM(channel->channel_volume_slide, px, py);
@@ -1145,7 +1158,7 @@ static int calculate_envelope(int value, instrument_t *inst, voice_t *voice,
 
 void handle_voices_final(song_t *song)
 {
-	int n, freq, period, vol, pan;
+	int n, freq, vol, pan;
 	voice_t *voice;
 	instrument_t *inst;
 	int inst_bg;
@@ -1172,9 +1185,8 @@ void handle_voices_final(song_t *song)
 		freq = voice->vfrequency;
 		if ((voice->vibrato_speed && voice->vibrato_depth)
 		|| (inst && inst->pitch_env.flags & IENV_ENABLED)) {
-			period = frequency_to_period(voice->vfrequency);
 			if (voice->vibrato_speed && voice->vibrato_depth) {
-				period = process_xxxrato(song, 9, period,
+				freq = process_xxxrato(song, 9, freq,
 							voice->vibrato_table,
 							voice->vibrato_speed,
 							voice->vibrato_rate,
@@ -1183,16 +1195,15 @@ void handle_voices_final(song_t *song)
 			}
 			if (inst && inst->pitch_env.flags & IENV_ENABLED) {
 
-				period = -calculate_envelope(period,
+				freq = -calculate_envelope(freq,
 						inst, voice, &inst->pitch_env,
 						inst_bg,
 						&inst->mem_pitch_env,
 						&voice->pitch_env,
 						3, 0);
 			}
-			freq = period_to_frequency(period);
 		}
-		
+
 	/* TODO envelopes go here */
 		voice_apply_frequency(song, voice, freq);
 
@@ -1226,28 +1237,12 @@ void handle_voices_final(song_t *song)
 }
 
 
-void process_channel_tick(song_t *song, channel_t *channel, note_t *note)
+void process_channel_tick(song_t *song, channel_t *channel, UNUSED note_t *note)
 {
 	int period;
 
-	if (note->effect == 'J') {
-		switch ((song->speed - song->tick) % 3) {
-		case 0:
-			period = 0;
-			break;
-		case 1:
-			period = channel->arp_high- channel->arp_mid;
-			break;
-		case 2:
-			period = channel->arp_low - channel->arp_mid;
-			break;
-		};
-		period += channel->period;
-	} else {
-		period = channel->period;
-	}
-
 	/* channel vibrato is for effects, etc */
+	period = channel->period;
 	if (channel->vibrato_on) {
 		period = process_xxxrato(song, 6, period,
 					channel->vibrato_use,
@@ -1255,10 +1250,12 @@ void process_channel_tick(song_t *song, channel_t *channel, note_t *note)
 					0,
 					&channel->vibrato_depth,
 					&channel->vibrato_pos);
+		channel->period = period;
 	}
 	if (channel->tremelo_on) {
 		int vol;
-		vol = process_xxxrato(song, 7, channel_get_volume(channel),
+		vol = process_xxxrato(song, 7,
+				channel_get_volume(channel),
 					channel->tremelo_use,
 					channel->tremelo_speed,
 					0,
@@ -1277,9 +1274,6 @@ void process_channel_tick(song_t *song, channel_t *channel, note_t *note)
 					&channel->panbrello_pos);
 		voice_set_panning(channel->fg_voice, pos);
 	}
-
-	if (channel->fg_voice)
-		voice_set_frequency(channel->fg_voice, period_to_frequency(period));
 }
 
 int process_xxxrato(song_t *song, int scale, int x, const int *table, int speed, int rate, int *depth, int *pos)

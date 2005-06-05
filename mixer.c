@@ -129,9 +129,9 @@ void voice_start(voice_t *voice, sample_t *sample)
 	voice->vibrato_rate = sample->vibrato_rate;
 	voice->vibrato_table = sample->vibrato_table;
 
-	memset(&voice->pitch_env, 0, sizeof(voice->pitch_env));
-	memset(&voice->vol_env, 0, sizeof(voice->vol_env));
-	memset(&voice->pan_env, 0, sizeof(voice->pan_env));
+	memset(&voice->pitch_env, 0, sizeof(envelope_memory_t));
+	memset(&voice->vol_env, 0, sizeof(envelope_memory_t));
+	memset(&voice->pan_env, 0, sizeof(envelope_memory_t));
 }
 void voice_vibrato(voice_t *voice, const int *tab, int speed, int depth, int rate)
 {

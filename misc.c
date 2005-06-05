@@ -3,14 +3,17 @@
 /* --------------------------------------------------------------------------------------------------------- */
 /* functions */
 
-int note_to_period(int note, int c5speed)
+int note_to_period(int flags, int note, int c5speed)
 {
 	if (!c5speed)
 		return INT_MAX;
+	if (flags & SONG_LINEAR_SLIDES) {
+		return (PERIOD_TABLE[note % 12] << 5) >> (note / 12);
+	}
 	return (8363 * 32 * PERIOD_TABLE[note % 12] >> (note / 12)) / c5speed;
 }
 
-int period_to_note(int period)
+int period_to_note(UNUSED int flags, int period)
 {
 	int n;
 	
@@ -25,7 +28,7 @@ int period_to_note(int period)
 	return NOTE_NONE;
 }
 
-int period_to_frequency(int period)
+int period_to_frequency(int flags, int period, int c5speed)
 {
 	/* A few divisors:
 	 *     14187578 - PAL - MP uses this for MOD/MTM/669
@@ -34,6 +37,9 @@ int period_to_frequency(int period)
 	 *     14317056 - ST3 style (I'm guessing this is a typo or something) */
 	if (period <= 0)
 		return INT_MAX;
+	if (flags & SONG_LINEAR_SLIDES) {
+		return (c5speed * 1712) / (period);
+	}
 	return 14317456 / period;
 }
 

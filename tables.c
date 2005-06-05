@@ -17,6 +17,7 @@ const int MOD_FINETUNE_TABLE[] = {
 
 const int PROTRACKER_PANNING[4] = {0, 64, 64, 0};
 
+
 /* This is precisely the same set of values that Impulse Tracker uses when handling the S8x effect. I doubt
 IT uses a lookup table to figure out something simple like this, but I can't quite guess the formula IT uses,
 and besides, tables are fun :P This is just for playback; when loading the default panning positions in S3M

@@ -366,9 +366,9 @@ struct channel {
 	uint8_t panning; /* 0..64 */
 
 	int realnote;
-	int arp_low, arp_mid, arp_high;
+	int arpmem;
 
-	int period; /* for handling effects */
+	int period;
 	int target_period; /* where the portamento to note is heading */
 	int offset; /* "real" sample offset (the 0xYXX00 derived from Oxx and SAy) */
 	uint8_t volume_slide; /* last Dxx value */
@@ -442,6 +442,7 @@ typedef struct song {
 /* tables */
 
 extern const int PERIOD_TABLE[]; /* one octave */
+
 extern const int MOD_FINETUNE_TABLE[];
 extern const int PROTRACKER_PANNING[]; /* L/R/R/L */
 extern const int SHORT_PANNING[16]; /* S8x => 0..64 map */
@@ -459,9 +460,9 @@ extern const int *TABLE_SELECT[4];
 /* --------------------------------------------------------------------------------------------------------- */
 /* functions */
 
-int note_to_period(int note, int c5speed);
-int period_to_note(int period);
-int period_to_frequency(int period);
+int note_to_period(int flags, int note, int c5speed);
+int period_to_note(int flags, int period);
+int period_to_frequency(int flags, int period, int c5speed);
 
 /* this is a symmetric calculation (except for some rounding issues) */
 #define frequency_to_period(frequency) period_to_frequency(frequency)
@@ -532,7 +533,7 @@ void channel_note_cut(channel_t *channel);
 void channel_set_volume(channel_t *channel, int volume); /* volume column, i.e. the "note" volume */
 void channel_set_channel_volume(channel_t *channel, int volume); /* this is the Mxx volume */
 void channel_set_panning(channel_t *channel, int panning); /* range 0..64 */
-void channel_set_period(channel_t *channel, int period);
+void channel_set_period(song_t *song, channel_t *channel, int period);
 void channel_link_voice(channel_t *channel, voice_t *voice);
 void process_note(song_t *song, channel_t *channel, note_t *note);
 void process_volume_tick0(UNUSED song_t *song, channel_t *channel, note_t *note);

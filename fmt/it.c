@@ -189,10 +189,8 @@ int fmt_it_load(song_t *song, FILE *fp)
 	/* (hdr.flags & 2) no longer used (was vol0 optimizations) */
 	if (hdr.flags & 4)
 		song->flags |= SONG_INSTRUMENT_MODE;
-	if (hdr.flags & 8) {
+	if (hdr.flags & 8)
 		song->flags |= SONG_LINEAR_SLIDES;
-		TODO("linear slides");
-	}
 	if (hdr.flags & 16)
 		song->flags |= SONG_OLD_EFFECTS;
 	if (hdr.flags & 32)
@@ -200,9 +198,11 @@ int fmt_it_load(song_t *song, FILE *fp)
 	
 	if (hdr.special & 1) {
 		fseek(fp, hdr.msg_offset, SEEK_SET);
-		tmp = (char *)malloc(hdr.msg_length);
+		tmp = (char *)malloc(hdr.msg_length+1);
 		if (tmp) {
-			if (fread(tmp, hdr.msg_offset, 1, fp) == 1)
+			*tmp = 0;
+			tmp[hdr.msg_length]=0;
+			if (fread(tmp, hdr.msg_length, 1, fp) == 1)
 				song->message = tmp;
 		}
 	}
