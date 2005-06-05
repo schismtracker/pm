@@ -526,7 +526,6 @@ void dump_pattern(song_t *song, int n);
 /* --------------------------------------------------------------------------------------------------------- */
 /* processing */
 
-void channel_note_cut(channel_t *channel);
 void channel_set_volume(channel_t *channel, int volume); /* volume column, i.e. the "note" volume */
 void channel_set_channel_volume(channel_t *channel, int volume); /* this is the Mxx volume */
 void channel_set_panning(channel_t *channel, int panning); /* range 0..64 */

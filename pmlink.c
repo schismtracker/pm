@@ -11,6 +11,14 @@ void clear_cached_waveform(UNUSED int x) {}
 int instrument_get_current(void) { return 0; }
 int sample_get_current(void) { return 0; }
 
+enum song_mode {
+	MODE_STOPPED,
+	MODE_SINGLE_STEP,
+	MODE_PATTERN_LOOP,
+	MODE_PLAYING,
+};
+
+
 
 typedef sample_t song_sample;
 typedef instrument_t song_instrument;
@@ -35,11 +43,6 @@ void song_initialise(void)
 }
 
 
-
-
-
-
-
 void song_get_vu_meter(UNUSED int *left, UNUSED int *right)
 {
 /*TODO*/
@@ -50,6 +53,17 @@ void song_stop(void)
 	playing = 0;
 	if (pmsong) song_reset_play_state(pmsong);
 }
+
+enum song_mode song_get_mode(void)
+{
+	if (!pmsong) return MODE_STOPPED;
+	if (!playing) return MODE_STOPPED;
+	if (pmsong->flags & SONG_SINGLE_STEP) return MODE_SINGLE_STEP;
+	if (pmsong->flags & SONG_LOOP_PATTERN) return MODE_PATTERN_LOOP;
+	return MODE_PLAYING;
+}
+
+
 void song_loop_pattern(int pattern, int row)
 {
 	song_stop();

@@ -121,7 +121,7 @@ void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 	int nna;
 
 	if (!(song->flags & SONG_INSTRUMENT_MODE)) {
-		channel_note_cut(channel);
+		if (channel->fg_voice) voice_stop(channel->fg_voice);
 	} else if (channel->fg_voice) {
 		i = &song->instruments[ channel->instrument ];
 
@@ -172,12 +172,6 @@ void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 		}
 		channel->fg_voice = 0;
 	}
-}
-
-void channel_note_cut(channel_t *channel)
-{
-	if (channel->fg_voice)
-		voice_stop(channel->fg_voice);
 }
 
 void channel_set_global_volume(channel_t *channel, int sampvol, int instvol)
@@ -276,9 +270,7 @@ void process_note(song_t *song, channel_t *channel, note_t *note)
 		}
 	}
 	
-	if (note->note == NOTE_CUT) {
-		channel_note_cut(channel);
-	} else if (note->note == NOTE_OFF) {
+	if (note->note == NOTE_CUT || note->note == NOTE_OFF) {
 		channel_note_nna(song, channel, note);
 	} else if (note->note <= NOTE_LAST) {
 		int noteval, period;
@@ -306,7 +298,7 @@ void process_note(song_t *song, channel_t *channel, note_t *note)
 		if (!sample->data) {
 			/* undefined sample -> note cut (this should be up above, really) */
 			printf("no data!\n");
-			channel_note_cut(channel);
+			if (channel->fg_voice) voice_stop(channel->fg_voice);
 			return;
 		}
 
@@ -1037,7 +1029,7 @@ void process_effects_tickN(song_t *song, channel_t *channel, note_t *note)
 		if ((channel->last_special & 0xF0) == 0xC0) {
 			/* cut after */
 			if ((song->speed - song->tick) == (channel->last_special & 0x0f)) {
-				channel_note_cut(channel);
+				if (channel->fg_voice) voice_stop(channel->fg_voice);
 			}
 			break;
 
@@ -1103,7 +1095,7 @@ int increment_row(song_t *song)
 
 static int calculate_envelope(instrument_t *inst, voice_t *voice,
 			envelope_t *env, envelope_memory_t *im, envelope_memory_t *m,
-			int plus, int minus, int scale, int noff)
+			int plus, int scale, int noff)
 {
 	int pt, ev, ep, i;
 	int x2, x1;
@@ -1120,10 +1112,10 @@ static int calculate_envelope(instrument_t *inst, voice_t *voice,
 	
 	x2 = env->ticks[pt];
 	if (ep >= x2) {
-		ev = (env->values[pt] - minus) * scale;
+		ev = (env->values[pt]) << scale;
 		x1 = x2;
 	} else if (pt) {
-		ev = (env->values[pt-1] - minus) * scale;
+		ev = (env->values[pt-1]) << scale;
 		x1 = env->ticks[pt-1];
 	} else {
 		ev = plus;
@@ -1131,7 +1123,7 @@ static int calculate_envelope(instrument_t *inst, voice_t *voice,
 	}
 	if (ep > x2) ep = x2;
 	if (x2 > x1 && ep > x1) {
-		int dst = (env->values[pt] - minus) * scale;
+		int dst = env->values[pt] << scale;
 		ev += ((ep-x1) * (dst - ev)) / (x2-x1);
 	}
 
@@ -1205,7 +1197,7 @@ void handle_voices_final(song_t *song)
 				ev = (calculate_envelope(inst, voice, &inst->pitch_env,
 						&inst->mem_pitch_env,
 						&voice->pitch_env,
-						0, 0, 1, 0));
+						0, 0, 0));
 				if ((voice->realnote << 1) + ev <= 0)
 					ev = - (voice->realnote << 1);
 
@@ -1234,17 +1226,17 @@ void handle_voices_final(song_t *song)
 			ev = (calculate_envelope(inst, voice, &inst->pan_env,
 						&inst->mem_pan_env,
 						&voice->pan_env,
-						0, 0, 2, 0)) + 64;
+						32, 1, 0)) + 64;
 			pan *= ev;
 			pan >>= 5;
 		}
 
 		vol = voice->fvolume;
-		if (inst && inst->vol_env.flags & IENV_ENABLED && voice->fadeout == 0) {
+		if (inst && inst->vol_env.flags & IENV_ENABLED) {
 			ev = calculate_envelope(inst, voice, &inst->vol_env,
 						&inst->mem_vol_env,
 						&voice->vol_env,
-						0, 0, 4, 1) >> 2;
+						0, 2, 1) >> 2;
 			vol *= ev;
 			vol >>= 6;
 
