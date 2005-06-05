@@ -338,15 +338,30 @@ void process_note(song_t *song, channel_t *channel, note_t *note)
 				song->flags & SONG_INSTRUMENT_MODE
 				? song->instruments[note->instrument].global_volume
 				: 128);
-			channel_set_volume(channel, sample->volume);
 			if (song->flags & SONG_INSTRUMENT_MODE) {
 				instrument_t *inst;
+				int pan, vol;
+
 				inst = &song->instruments[note->instrument];
-				channel_set_panning(channel,
-					channel->panning +
+
+				vol = sample->volume;
+				pan = channel->panning +
 				(noteval - (int)(inst->pitch_pan_center))
-					* (inst->pitch_pan_separation/8));
+					* (inst->pitch_pan_separation/8);
+
+				if (inst->rand_vol_var && vol) {
+					vol = ((100-(rand()
+					% inst->rand_vol_var)) * vol) / 100;
+				}
+				if (inst->rand_pan_var && pan) {
+					pan = ((64-(rand()
+					% inst->rand_pan_var)) * pan) / 64;
+				}
+
+				channel_set_volume(channel, vol);
+				channel_set_panning(channel, pan);
 			} else {
+				channel_set_volume(channel, sample->volume);
 				channel_set_panning(channel,
 						channel->panning);
 			}

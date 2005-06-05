@@ -7,10 +7,6 @@ void cfg_atexit_save_audio(cfg_file_t *cfg)
 void cfg_save_audio(cfg_file_t *cfg)
 		
 
-volume swing, 
-pitch/pan center, separation
-pan/swing
-pitch swing
 pitch midi (channel,program,banklo,bankhi)
 pitch -> filter envelope
 ifc,ifr
