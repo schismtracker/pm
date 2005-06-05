@@ -339,7 +339,17 @@ void process_note(song_t *song, channel_t *channel, note_t *note)
 				? song->instruments[note->instrument].global_volume
 				: 128);
 			channel_set_volume(channel, sample->volume);
-			channel_set_panning(channel, channel->panning);
+			if (song->flags & SONG_INSTRUMENT_MODE) {
+				instrument_t *inst;
+				inst = &song->instruments[note->instrument];
+				channel_set_panning(channel,
+					channel->panning +
+				(noteval - (int)(inst->pitch_pan_center))
+					* (inst->pitch_pan_separation/8));
+			} else {
+				channel_set_panning(channel,
+						channel->panning);
+			}
 		}
 	}
 
