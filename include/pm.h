@@ -302,7 +302,7 @@ typedef struct voice {
 	/* this stuff isn't used directly by the mixer */
 	int volume, fvolume;
 	int panning, fpanning;
-	int frequency, vfrequency;
+	int frequency, period;
 	int nfc, fadeout;
 
 	int vibrato_pos;
@@ -478,7 +478,7 @@ void voice_process(voice_t *voice, int32_t *buffer, int size);
 
 /* maybe it'd be useful to have an independent voice_set_sample function that updates all the sample data? */
 void voice_start(voice_t *voice, sample_t *sample);
-void voice_set_frequency(voice_t *voice, int frequency);
+void voice_set_period(voice_t *voice, int period);
 void voice_apply_frequency(song_t *song, voice_t *voice, int frequency);
 
 /* this should be the FV for the channel after calculating global volume, channel volume, etc. */
@@ -530,12 +530,12 @@ void channel_note_cut(channel_t *channel);
 void channel_set_volume(channel_t *channel, int volume); /* volume column, i.e. the "note" volume */
 void channel_set_channel_volume(channel_t *channel, int volume); /* this is the Mxx volume */
 void channel_set_panning(channel_t *channel, int panning); /* range 0..64 */
-void channel_set_period(song_t *song, channel_t *channel, int period);
+void channel_set_period(channel_t *channel, int period);
 void channel_link_voice(channel_t *channel, voice_t *voice);
 void process_note(song_t *song, channel_t *channel, note_t *note);
-void process_volume_tick0(UNUSED song_t *song, channel_t *channel, note_t *note);
+void process_volume_tick0(song_t *song, channel_t *channel, note_t *note);
 void process_effects_tick0(song_t *song, channel_t *channel, note_t *note);
-void process_effects_tickN(UNUSED song_t *song, channel_t *channel, note_t *note);
+void process_effects_tickN(song_t *song, channel_t *channel, note_t *note);
 int process_xxxrato(song_t *song, int scale, int x, const int *table, int speed, int rate, int *depth, int *pos);
 int increment_row(song_t *song);
 

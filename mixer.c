@@ -143,13 +143,10 @@ void voice_vibrato(voice_t *voice, const int *tab, int speed, int depth, int rat
 }
 
 
-void voice_set_frequency(voice_t *voice, int frequency)
+void voice_set_period(voice_t *voice, int period)
 {
-	voice->vfrequency = frequency;
+	voice->period = period;
 }
-/* Bleh. REALLY wish this didn't have to take the song as a parameter, but
-I don't see any other way to get the mixing rate here without saving it in
-every voice or keeping a global, and those are both bogus. */
 void voice_apply_frequency(song_t *song, voice_t *voice, int frequency)
 {
 	voice->frequency = frequency;
