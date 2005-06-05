@@ -258,10 +258,7 @@ typedef struct envelope {
 } envelope_t;
 
 typedef struct envelope_memory {
-	int node;
-	int ticks;
-	int x, y;
-	int ratex, ratey;
+	int x;
 } envelope_memory_t;
 
 typedef struct instrument {
@@ -295,9 +292,9 @@ typedef struct voice {
 	length, loop_start, and loop_end, these are also signed to avoid a mess of casts.
 	Note that all of these position-related variables are FIXED POINT values; shift right by FRACBITS
 	to get the actual sample position. */
-	long length, loop_start, loop_end;
-	long cur; /* fixed-point sample position */
-	long inc; /* how much to add to 'cur' per sample (derived from frequency) */
+	uint32_t length, loop_start, loop_end;
+	uint32_t cur; /* fixed-point sample position */
+	int32_t inc; /* how much to add to 'cur' per sample (derived from frequency) */
 	int lvol, rvol; /* final stereo volume */
 	channel_t *host; /* the channel that "owns" this voice (used when stopping the note) */
 	instrument_t *inst_bg; /* when backgrounded, inst_bg contains original instrument reference */
@@ -314,7 +311,7 @@ typedef struct voice {
 	int vibrato_rate;
 	const int *vibrato_table;
 
-	int noteon;
+	int noteon, realnote, c5speed;
 	envelope_memory_t pitch_env, vol_env, pan_env;
 } voice_t;
 

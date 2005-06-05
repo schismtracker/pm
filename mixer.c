@@ -69,7 +69,7 @@ static void voice_get_sample(voice_t *voice, int32_t *l, int32_t *r)
 	}
 	if (voice->panning == PAN_SURROUND) {
 		int32_t q = (s * voice->lvol) >> 14;
-		*l += q;
+		*l -= q;
 		*r -= q;
 	} else {
 		/* finally, send it back */
