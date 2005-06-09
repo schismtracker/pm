@@ -1,6 +1,6 @@
 #include "pm.h"
 
-#define FADEOUT_MULTIPLIER	2
+#define FADEOUT_MULTIPLIER	1
 /* --------------------------------------------------------------------------------------------------------- */
 /* playback */
 
@@ -97,11 +97,16 @@ void channel_past_note_nna(song_t *song, channel_t *channel, int nna)
 	if (song->flags & SONG_INSTRUMENT_MODE) {
 		if (nna == NNA_CUT) {
 			for (n = 0; n < channel->num_voices; n++) {
+				if (channel->voices[n] == channel->fg_voice)
+					continue;
 				voice_stop(channel->voices[n]);
 			}
 		} else if (nna == NNA_FADE) {
 			for (n = 0; n < channel->num_voices; n++) {
 				v = channel->voices[n];
+				if (v == channel->fg_voice)
+					continue;
+
 				v->noteon = 0;
 				if (v->inst_bg) {
 					v->fadeout = v->inst_bg->fadeout << FADEOUT_MULTIPLIER;
@@ -110,6 +115,9 @@ void channel_past_note_nna(song_t *song, channel_t *channel, int nna)
 		} else if (nna == NNA_OFF) {
 			for (n = 0; n < channel->num_voices; n++) {
 				v = channel->voices[n];
+				if (v == channel->fg_voice)
+					continue;
+
 				v->noteon = 0; /* will trigger sustain/etc */
 			}
 		}
@@ -207,6 +215,7 @@ int channel_get_volume(channel_t *c)
 void channel_set_volume(channel_t *channel, int volume)
 {
 	channel->volume = volume;
+
 	if (channel->fg_voice)
 		voice_set_volume(channel->fg_voice, channel_get_volume(channel));
 }
@@ -633,6 +642,9 @@ void process_volume_tick0(song_t *song, channel_t *channel, note_t *note)
 
 	case (203)...(212):
 		/* vibrato  */
+		process_direct_effect_tick0(song, channel, 'H',
+				(note->volume - 203) << 2);
+		break;
 
 	default:
 		TODO("volume column effect %d", note->volume);
@@ -772,6 +784,15 @@ void process_effects_tick0(song_t *song, channel_t *channel, note_t *note)
 				break;
 			case 2:
 				channel_past_note_nna(song, channel, NNA_FADE);
+				break;
+
+			case 3: /* set nna for this note to NNA_CUT */
+			case 4: /* set nna for this note to NNA_CONTINUE */
+			case 5: /* set nna for this note to NNA_OFF */
+			case 6: /* set nna for this note to NNA_FADE */
+
+			case 7: /* turn off volenv off (until S78) */
+			case 8: /* turn off volenv back on */
 				break;
 			};
 			break;
@@ -1186,7 +1207,7 @@ void handle_voices_final(song_t *song)
 		if ((voice->vibrato_speed && voice->vibrato_depth)
 		|| (inst && inst->pitch_env.flags & IENV_ENABLED)) {
 			if (voice->vibrato_speed && voice->vibrato_depth) {
-				period = process_xxxrato(song, 9, period,
+				period = process_xxxrato(song, 4, period,
 							voice->vibrato_table,
 							voice->vibrato_speed,
 							voice->vibrato_rate,
@@ -1259,7 +1280,7 @@ void process_channel_tick(song_t *song, channel_t *channel, UNUSED note_t *note)
 	/* channel vibrato is for effects, etc */
 	period = channel->period;
 	if (channel->vibrato_on) {
-		period = process_xxxrato(song, 6, period,
+		period = process_xxxrato(song, 4, period,
 					channel->vibrato_use,
 					channel->vibrato_speed,
 					0,

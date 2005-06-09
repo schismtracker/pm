@@ -35,7 +35,7 @@ void pt_import_effect(note_t *note)
 			note->param &= 0xf0;
 		/* fall through */
 	default:
-		note->effect = effects[note->effect];
+		note->effect = effects[note->effect & 15];
 		break;
 	case 0x0:
 		note->effect = note->param ? 'J' : 0;
@@ -84,6 +84,39 @@ void pt_import_effect(note_t *note)
 	case 0xf:
 		note->effect = (note->param < 0x20) ? 'A' : 'T';
 		break;
+	case 0x10: /* XM 'G" */
+		note->effect = 'V';
+		note->param <<= 1;
+		break;
+	case 0x11: /* XM 'H' */
+		note->effect = 'W';
+		break;
+	case 0x14: /* XM 'K' (keyoff) */
+		/* we use past note off because it doesn't effect current */
+		note->effect = 'S';
+		note->param = 0x71;
+		break;
+	case 0x15: /* XM 'L' set envelope position */
+		/* no idea... */
+		break;
+	case 0x19: /* XM 'P' panning slide */
+		note->effect = 'P';
+		break;
+	case 0x1b: /* XM 'R' retrig */
+		note->effect = 'R';
+		break;
+	case 0x1d: /* XM 'T' tremor */
+		note->effect = 'I';
+		break;
+	case 0x21: /* XM 'X' extrafine portamento */
+		if ((note->param & 0xf0) == 0x10) {
+			note->effect = 'F';
+			note->param = 0xe0 | (note->param & 15);
+		} else if ((note->param & 0xf0) == 0x20) {
+			note->effect = 'E';
+			note->param = 0xe0 | (note->param & 15);
+		}
+		break;
 	}
 }
 
@@ -114,6 +147,7 @@ int song_load(song_t *song, const char *filename)
 	typedef int (*load_func) (song_t *song, FILE *fp);
 	load_func funcs[] = {
 		// order: 669 mod (s3m,far) (xm,it,mt2,mtm,ntk,sid,mdl) ult liq ams f2r dtm ogg stm mp3
+		fmt_xm_load,
 		fmt_669_load,
 		fmt_mod_load,
 		fmt_s3m_load,

@@ -373,10 +373,6 @@ struct channel {
 	uint8_t global_volume_slide;
 	/* these two are synchronized if compat. Gxx is enabled in the song flags */
 
-	/* (UKHRY S[345]) */
-	uint16_t urky_form; /* like umode; sine,square,ramp(ukh), sin,sq,r(r) */
-/*.... TODO */
-
 	/* (I) this is a countdown; for Ixx; initially set is set if we see param
 	then tick -= 0x10; until tick &0xF0 == 0 then tick-- with volume=0 */
 	uint8_t tremor_set;
@@ -562,6 +558,7 @@ void pt_import_effect(note_t *note); /* convert protracker effect (0-F) to IT st
 void mod_import_note(const uint8_t p[4], note_t *note); /* used by the mod loader */
 
 #define LOAD(f) int fmt_##f##_load(song_t *song, FILE *fp)
+LOAD(xm);
 LOAD(669);
 LOAD(imf);
 LOAD(it);

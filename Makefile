@@ -13,7 +13,7 @@ all: pm
 clean:
 	$(RM) core.* pm *.o *~ fmt/*.o fmt/*~
 pm: file.o player.o mixer.o misc.o tables.o main.o itsex.o \
-fmt/669.o fmt/imf.o fmt/it.o fmt/mod.o fmt/mtm.o fmt/s3m.o fmt/sfx.o \
+fmt/xm.o fmt/669.o fmt/imf.o fmt/it.o fmt/mod.o fmt/mtm.o fmt/s3m.o fmt/sfx.o \
 pmlink.o
 	$(CC) -o $@ $^ -lao
 
@@ -27,6 +27,7 @@ mixer.o: mixer.c include/pm.h Makefile
 player.o: player.c include/pm.h Makefile
 tables.o: tables.c include/pm.h Makefile
 
+fmt/xm.o: fmt/xm.c include/pm.h Makefile
 fmt/669.o: fmt/669.c include/pm.h Makefile
 fmt/imf.o: fmt/imf.c include/pm.h Makefile
 fmt/it.o: fmt/it.c include/pm.h Makefile
