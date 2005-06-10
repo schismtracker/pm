@@ -188,7 +188,7 @@ static void load_xm_envelope(envelope_t *env, uint8_t tab[48], uint8_t nodes,
 		for (i = j = 0; i < nodes; i++) {
 			env->ticks[i] = (tab[j*2] + (tab[j*2+1] * 256));
 			j++;
-			env->values[i] = (tab[j*2] + (tab[j*2+1] * 256));
+			env->values[i] = (tab[j*2] + (tab[j*2+1] * 256)) << 2;
 			j++;
 		}
 		env->loop_start = loop_start;
@@ -209,7 +209,8 @@ int fmt_xm_load(song_t *song, FILE *fp)
 	struct xm_pattern phdr;
 	struct xm_instrument ihdr;
 	struct xm_instrument_sample ish;
-	struct xm_sample xsh;
+	struct xm_sample xsdata[MAX_SAMPLES];
+	struct xm_sample *xsh;
 	instrument_t *inst;
 	sample_t *sample;
 	int base_sample_adjust;
@@ -219,6 +220,7 @@ int fmt_xm_load(song_t *song, FILE *fp)
 	UNUSED int16_t *sd16, vd16;
 	UNUSED int8_t *sd8, vd8;
 	off_t st;
+	int bpp;
 
 	fread(&hdr, 60, 1, fp);
 	if (memcmp(hdr.magic1, "Extended Module: ", 17) != 0) return LOAD_UNSUPPORTED;
@@ -266,7 +268,6 @@ int fmt_xm_load(song_t *song, FILE *fp)
 
 		inst->filename[0] = 0;
 		inst->fadeout = ish.fadeout << 1;
-printf("i=%d, ish.fade=%d\n",i, ish.fadeout);
 		inst->pitch_pan_separation = 0;
 		inst->pitch_pan_center = 0;
 		inst->global_volume = 128;
@@ -287,46 +288,59 @@ printf("i=%d, ish.fade=%d\n",i, ish.fadeout);
 		load_xm_envelope(&inst->pan_env, ish.panenv, ish.pannodes, ish.pansustain,
 				ish.panloop_start, ish.panloop_end, ish.panning_flag);
 
+		for (j = 0; j < samps; j++) {
+			fread(&xsdata[j], 40, 1, fp);
+		}
 		for (j = 0; j < samps; j++, sample++) {
-			fread(&xsh, 40, 1, fp);
-			st = ftell(fp);
+			xsh = &xsdata[j];
+
 			if (ish.vibrato_depth && ish.vibrato_sweep) {
 				sample->vibrato_speed = ish.vibrato_sweep;
 				sample->vibrato_depth = ish.vibrato_depth;
 				sample->vibrato_rate = ish.vibrato_rate;
 				sample->vibrato_table = TABLE_SELECT[ish.vibrato_type % 4];
 			}
-// 27392 -> 16926 TODO this right
-// 54784 -> 8529 
-			sample->c5speed = ((8529+(xsh.transpose * 700))*14)/8;
-			sample->global_volume = xsh.volume;
+			// I _think_ this is correct. it might have the octave
+			// off... will correct later (more TODO)
+			memcpy(sample->title, xsh->name, 22);
+			unnull(sample->title, 22);
+			sample->c5speed = period_to_frequency(SONG_LINEAR_SLIDES,
+					note_to_period(SONG_LINEAR_SLIDES,
+					70 + xsh->transpose,
+				8363), 8363) + (xsh->finetune * 4);
+	
 			sample->flags = 0;
 
-			if (xsh.type & XMSAMP_LOOP) {
+			if (xsh->type & XMSAMP_LOOP) {
 				sample->flags |= SAMP_LOOP;
-			} else if (xsh.type & XMSAMP_PINGPONG) {
+			} else if (xsh->type & XMSAMP_PINGPONG) {
 				sample->flags |= SAMP_PINGPONG;
 			}
-			sample->loop_start = xsh.loop_start;
-			sample->loop_end = xsh.loop_start + xsh.loop_length;
+			bpp = (xsh->type & XMSAMP_16BIT) ? 2 : 1;
+
+
+			sample->loop_start = xsh->loop_start;
+			xsh->loop_length /= bpp;
+
+			sample->loop_end = xsh->loop_start + xsh->loop_length;
+			sample->global_volume = xsh->volume;
 			sample->volume = 64;
 
-			sample->data = malloc(xsh.sample_length);
+			sample->data = malloc(xsh->sample_length);
+			sample->length = xsh->sample_length / bpp;
 			if (!sample->data) return LOAD_FORMAT_ERROR;
-			if (xsh.type & XMSAMP_16BIT) {
-return LOAD_FORMAT_ERROR;
-puts("16bit");
+			if (xsh->type & XMSAMP_16BIT) {
 				sample->flags |= SAMP_16BIT;
 				for (n = 0, sd16=(int16_t*)sample->data;
-							n < xsh.sample_length; n+=2, sd16++) {
+				n < xsh->sample_length; n+=2, sd16++) {
 					vd16 = fgetc(fp);
-					vd16 += (fgetc(fp) * 256);
+					vd16 += (fgetc(fp)*256);
 					if (n) *sd16 = vd16 + (sd16[-1]);
 					else *sd16 = vd16;
 				}
 			} else {
 				for (n = 0, sd8=(int8_t*)sample->data;
-					n < xsh.sample_length; n++, sd8++) {
+					n < xsh->sample_length; n++, sd8++) {
 					vd8 = fgetc(fp);
 					if (n) *sd8 = vd8 + (sd8[-1]);
 					else *sd8 = vd8;
