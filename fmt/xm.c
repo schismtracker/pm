@@ -23,14 +23,6 @@ struct xm_sample {
 	uint8_t name[22];
 };
 
-enum {
-	XMSAMP_NORMAL = 0,
-	XMSAMP_LOOP = 1,
-	XMSAMP_PINGPONG = 2,
-	
-	XMSAMP_16BIT = 0x10,
-};
-
 struct xm_instrument_sample {
 	uint8_t notetab[96];
 	uint8_t volenv[48];
@@ -76,8 +68,8 @@ struct xm_song_header {
 	uint16_t number_of_patterns;
 	uint16_t number_of_instruments;
 	uint16_t flags;
-	uint16_t initial_tempo;
 	uint16_t initial_speed;
+	uint16_t initial_tempo;
 	uint8_t pattern_order_table[256];
 };
 enum { /* xm_song_header.flags */
@@ -166,9 +158,11 @@ static int load_xm_pattern(int num_channels, pattern_t *pattern, FILE *fp, int b
 					note->volume = 193 + xm_voleffectmap[xn.volume & 15];
 					break;
 				default:
-					note->volume = xn.volume - 0x10;
+					note->volume = xn.volume;
 					break;
 				};
+			} else if (xn.volume) {
+				note->volume = xn.volume;
 			}
 
 			pt_import_effect(note);
@@ -182,13 +176,13 @@ static void load_xm_envelope(envelope_t *env, uint8_t tab[48], uint8_t nodes,
 			uint8_t flags)
 {
 	int i, j;
-	if (nodes && flags & 1) {
+	if (flags & 1) {
 		if (nodes > 24) nodes = 24;
-		env->nodes = nodes;
+		env->nodes = nodes+1;
 		for (i = j = 0; i < nodes; i++) {
 			env->ticks[i] = (tab[j*2] + (tab[j*2+1] * 256));
 			j++;
-			env->values[i] = (tab[j*2] + (tab[j*2+1] * 256)) << 2;
+			env->values[i] = (tab[j*2] + (tab[j*2+1] * 256));
 			j++;
 		}
 		env->loop_start = loop_start;
@@ -216,9 +210,9 @@ int fmt_xm_load(song_t *song, FILE *fp)
 	int base_sample_adjust;
 	int i, j, rows, size, samps;
 	channel_t *channel;
-	UNUSED unsigned int n;
-	UNUSED int16_t *sd16, vd16;
-	UNUSED int8_t *sd8, vd8;
+	unsigned int n;
+	int16_t *sd16, vd16;
+	int8_t *sd8, vd8;
 	off_t st;
 	int bpp;
 
@@ -296,7 +290,7 @@ int fmt_xm_load(song_t *song, FILE *fp)
 
 			if (ish.vibrato_depth && ish.vibrato_sweep) {
 				sample->vibrato_speed = ish.vibrato_sweep;
-				sample->vibrato_depth = ish.vibrato_depth;
+				sample->vibrato_depth = ish.vibrato_depth >> 1;
 				sample->vibrato_rate = ish.vibrato_rate;
 				sample->vibrato_table = TABLE_SELECT[ish.vibrato_type % 4];
 			}
@@ -306,30 +300,31 @@ int fmt_xm_load(song_t *song, FILE *fp)
 			unnull(sample->title, 22);
 			sample->c5speed = period_to_frequency(SONG_LINEAR_SLIDES,
 					note_to_period(SONG_LINEAR_SLIDES,
-					70 + xsh->transpose,
-				8363), 8363) + (xsh->finetune * 4);
+					71 + xsh->transpose,
+				8363), 8363) + (xsh->finetune*4);
 	
 			sample->flags = 0;
 
-			if (xsh->type & XMSAMP_LOOP) {
+			if ((xsh->type & 3)  == 1) {
 				sample->flags |= SAMP_LOOP;
-			} else if (xsh->type & XMSAMP_PINGPONG) {
+			}
+			if ((xsh->type & 3) == 2) {
 				sample->flags |= SAMP_PINGPONG;
 			}
-			bpp = (xsh->type & XMSAMP_16BIT) ? 2 : 1;
+			bpp = (xsh->type & 0x10) ? 2 : 1;
 
 
 			sample->loop_start = xsh->loop_start;
 			xsh->loop_length /= bpp;
 
 			sample->loop_end = xsh->loop_start + xsh->loop_length;
-			sample->global_volume = xsh->volume;
-			sample->volume = 64;
+			sample->volume = xsh->volume;
+			sample->global_volume = 64;
 
 			sample->data = malloc(xsh->sample_length);
 			sample->length = xsh->sample_length / bpp;
 			if (!sample->data) return LOAD_FORMAT_ERROR;
-			if (xsh->type & XMSAMP_16BIT) {
+			if (xsh->type & 0x10) {
 				sample->flags |= SAMP_16BIT;
 				for (n = 0, sd16=(int16_t*)sample->data;
 				n < xsh->sample_length; n+=2, sd16++) {
@@ -350,13 +345,16 @@ int fmt_xm_load(song_t *song, FILE *fp)
 		base_sample_adjust += samps;
 	}
 
-puts("OK");
-	song->flags = SONG_STEREO | SONG_INSTRUMENT_MODE | SONG_LINEAR_SLIDES;
+	song->flags = SONG_STEREO | SONG_INSTRUMENT_MODE;
+	if (shdr.flags & XMSONG_LINEAR_TABLE) song->flags |= SONG_LINEAR_SLIDES;
+
 	song->message = 0;
 	song->initial_global_volume = 128;
 	song->master_volume = 128;
 	song->global_volume = 128;
 	song->pan_separation = 64;
+	song->initial_tempo = shdr.initial_tempo;
+	song->initial_speed = shdr.initial_speed;
 	for (i = 0; i < shdr.song_length; i++) {
 		song->orderlist[i] = shdr.pattern_order_table[i];
 	}
