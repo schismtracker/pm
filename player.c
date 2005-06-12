@@ -138,8 +138,6 @@ void channel_note_nna(song_t *song, channel_t *channel, note_t *note)
 				nna = NNA_CUT;
 			} else if (note->note == NOTE_OFF) {
 				nna = NNA_OFF;
-			} else if (NOTE_IS_FADE(note->note)) {
-				nna = NNA_FADE;
 			} else if (i->dct == DCT_NOTE) { 
 				if (note->note == channel->nna_note) {
 					nna = i->dca;
@@ -1257,7 +1255,7 @@ void handle_voices_final(song_t *song)
 			ev = calculate_envelope(inst, voice, &inst->vol_env,
 						&inst->mem_vol_env,
 						&voice->vol_env,
-						0, 2, 1) >> 2;
+						0, 2, 1);
 			vol *= ev;
 			vol >>= 6;
 
