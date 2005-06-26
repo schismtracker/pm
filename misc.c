@@ -7,7 +7,7 @@ int note_to_period(int flags, int note, int c5speed)
 {
 	if (!c5speed)
 		return INT_MAX;
-	if (flags & SONG_LINEAR_SLIDES) {
+	if (flags & SONG_LINEAR_SLIDES) { /* c5speed isn't used here... */
 		return (PERIOD_TABLE[note % 12] << 5) >> (note / 12);
 	}
 	return (8363 * 32 * PERIOD_TABLE[note % 12] >> (note / 12)) / c5speed;
@@ -27,6 +27,7 @@ int period_to_note(UNUSED int flags, int period)
 	}
 	return NOTE_NONE;
 }
+#include <math.h>
 
 int period_to_frequency(int flags, int period, int c5speed)
 {
@@ -38,7 +39,7 @@ int period_to_frequency(int flags, int period, int c5speed)
 	if (period <= 0)
 		return INT_MAX;
 	if (flags & SONG_LINEAR_SLIDES) {
-		return (c5speed * 1712) / (period);
+		return c5speed  * 1712 / period;
 	}
 	return 14317456 / period;
 }

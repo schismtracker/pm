@@ -15,7 +15,7 @@ clean:
 pm: file.o player.o mixer.o misc.o tables.o main.o itsex.o \
 fmt/xm.o fmt/669.o fmt/imf.o fmt/it.o fmt/mod.o fmt/mtm.o fmt/s3m.o fmt/sfx.o \
 pmlink.o
-	$(CC) -o $@ $^ -lao
+	$(CC) -o $@ $^ -lao -lm
 
 # ----------------------------------------------------------------------------
 

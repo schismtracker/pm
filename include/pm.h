@@ -287,6 +287,8 @@ typedef struct instrument {
 
 typedef struct channel channel_t;
 typedef struct voice {
+	int vol, pan, pitch;
+
 	int8_t *data; /* sample data pointer; NULL = nothing playing on this voice */
 	/* To handle ping-pong loops, cur and inc need to be signed values; since cur is compared with
 	length, loop_start, and loop_end, these are also signed to avoid a mess of casts.
@@ -312,7 +314,10 @@ typedef struct voice {
 	const int *vibrato_table;
 
 	int noteon, realnote, c5speed;
+	int destnote, slide, toneto;
 	envelope_memory_t pitch_env, vol_env, pan_env;
+
+	int portamento;
 } voice_t;
 
 struct channel {

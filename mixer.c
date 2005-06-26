@@ -69,7 +69,7 @@ static void voice_get_sample(voice_t *voice, int32_t *l, int32_t *r)
 	}
 	if (voice->panning == PAN_SURROUND) {
 		int32_t q = (s * voice->lvol) >> 14;
-		*l -= q;
+		*l += q;
 		*r -= q;
 	} else {
 		/* finally, send it back */
@@ -113,6 +113,9 @@ static void voice_calc_volume(voice_t *voice)
 void voice_start(voice_t *voice, sample_t *sample)
 {
 	voice->noteon = 1;
+
+	voice->slide = 0;
+	voice->portamento = 0;
 
 	voice->data = sample->data;
 	voice->length = sample->length << FRACBITS;
@@ -170,7 +173,10 @@ void voice_apply_volume_panning(voice_t *voice, int volume, int panning)
 
 void voice_set_panning(voice_t *voice, int panning)
 {
-	voice->fpanning = CLAMP(panning, 0, 64);
+	if (panning == PAN_SURROUND)
+		voice->fpanning = PAN_SURROUND;
+	else
+		voice->fpanning = CLAMP(panning, 0, 64);
 }
 
 void voice_set_position(voice_t *voice, int position)
