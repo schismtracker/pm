@@ -1204,12 +1204,21 @@ void handle_voices_final(song_t *song)
 		}
 
 		cp = note_to_period(song->flags, voice->realnote, voice->c5speed)
-			+ voice->slide + (voice->portamento >> 2);
+			+ voice->slide;
+
+		if (voice->host && voice->host->fg_voice == voice && voice->host->vibrato_on) {
+			vp = process_xxxrato(song, 4, 0,
+					voice->host->vibrato_use,
+					voice->host->vibrato_speed,
+					0,
+					&voice->host->vibrato_depth,
+					&voice->host->vibrato_pos);
+		}
 
 		if ((voice->vibrato_speed && voice->vibrato_depth)
 		|| (inst && inst->pitch_env.flags & IENV_ENABLED)) {
 			if (voice->vibrato_speed && voice->vibrato_depth) {
-				vp = -process_xxxrato(song, 9, 0,
+				cp += process_xxxrato(song, 7, 0,
 							voice->vibrato_table,
 							voice->vibrato_speed,
 							voice->vibrato_rate,
@@ -1217,15 +1226,11 @@ void handle_voices_final(song_t *song)
 							&voice->vibrato_pos);
 			}
 
-			cp += vp;
-
 			if (inst && inst->pitch_env.flags & IENV_ENABLED) {
 				ev = (calculate_envelope(inst, voice, &inst->pitch_env,
 						&inst->mem_pitch_env,
 						&voice->pitch_env,
-						0, 0, 0));
-				if ((voice->realnote << 1) + ev <= 0)
-					ev = - (voice->realnote << 1);
+						0, 6, 0));
 
 
 				if (inst->flags & INST_FILTER) {
@@ -1236,10 +1241,9 @@ void handle_voices_final(song_t *song)
 							voice->realnote,
 							voice->c5speed);
 					p2 = note_to_period(song->flags,
-							voice->realnote+(ev/2),
+							voice->realnote+(ev/64),
 							voice->c5speed);
 					cp += (p2-p1);
-					if (ev&1) cp += (p2-p1)/32;
 				}
 			}
 		}
@@ -1310,7 +1314,7 @@ void process_channel_tick(song_t *song, channel_t *channel, UNUSED note_t *note)
 	}
 }
 
-int process_xxxrato(UNUSED song_t *song, int scale, int x, const int *table, int speed, int rate, int *depth, int *pos)
+int process_xxxrato(song_t *song, int scale, int x, const int *table, int speed, int rate, int *depth, int *pos)
 {
 	int n;
 	if (!table || !speed || !depth || !pos) return x;
@@ -1318,6 +1322,8 @@ int process_xxxrato(UNUSED song_t *song, int scale, int x, const int *table, int
 	n = table[*pos];
 	n *= (*depth);
 	n >>= scale;
+	if (song->flags & SONG_OLD_EFFECTS)
+		n = -n;
 	x += n;
 
 	(*pos) = ((*pos) + speed) & 255;
